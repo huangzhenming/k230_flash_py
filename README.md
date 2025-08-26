@@ -230,47 +230,11 @@ Contributions to this project are welcome!
 
 ### Project Structure
 
-```
+```bash
 .
 ├── src/                          # Source code root directory
 │   ├── k230_flash/              # Core flashing library
-│   │   ├── __init__.py          # Wraps core functionality as library API
-│   │   ├── api.py               # Python API interface
-│   │   ├── main.py              # Command-line program entry point
-│   │   ├── arg_parser.py        # Command-line argument parsing
-│   │   ├── burners.py           # Core flashing logic for BootROM and U-Boot modes
-│   │   ├── usb_utils.py         # USB device discovery and low-level communication utilities
-│   │   ├── kdimage.py           # .kdimg file format parser
-│   │   ├── kdimg_utils.py       # Utility functions that call kdimage parser and execute flashing
-│   │   ├── file_utils.py        # File processing related utilities
-│   │   ├── progress.py          # Progress bar callback implementation
-│   │   ├── constants.py         # Constant definitions
-│   │   ├── loaders/             # Directory for preset loader files
-│   │   │   ├── loader_mmc.bin   # EMMC/SDCARD loader
-│   │   │   ├── loader_spi_nand.bin  # SPI NAND loader
-│   │   │   └── loader_spi_nor.bin   # SPI NOR loader
-│   │   └── tests/               # Unit tests
-│   │       ├── test_arg_parser.py   # Argument parsing tests
-│   │       └── test_kdimage.py      # kdimage functionality tests
 │   └── gui/                     # Graphical interface tool
-│       ├── main.py              # GUI main program entry
-│       ├── single_flash.py      # Single file flashing interface
-│       ├── batch_flash.py       # Batch flashing interface
-│       ├── advanced_settings.py # Advanced settings interface
-│       ├── utils.py             # GUI utility functions
-│       ├── common_widget_sytles.py  # Common widget styles
-│       ├── log_file_monitor.py  # Log file monitoring
-│       ├── k230_flash_gui.spec  # PyInstaller packaging configuration
-│       ├── build_exe.bat        # Windows packaging script
-│       ├── english.ts           # English translation file
-│       ├── english.qm           # Compiled translation file
-│       ├── resources.qrc        # Qt resource configuration
-│       ├── resources_rc.py      # Compiled resource file
-│       ├── assets/              # Resource files directory
-│       └── images/              # Image resources
-├── pyproject.toml               # Project configuration and dependency management
-├── requirements.txt             # Python dependency list
-└── README.md                    # Project documentation
 ```
 
 ### Contributing
