@@ -150,6 +150,10 @@ class Ui_MainWindow(object):
         self.addr_filename_pairs = []
         self.img_list_mode = None
 
+        # 设备等待相关状态
+        self.waiting_for_device = False
+        self.waiting_timer = None
+
         # 新增定时器相关变量
         self.sim_timer = None
         self.sim_elapsed = 0
@@ -163,16 +167,32 @@ class Ui_MainWindow(object):
     def update_ui_text(self):
         # self.setWindowTitle(QCoreApplication.translate("SingleFlash", "单机烧录"))
 
-        self.image_file_label.setText(QCoreApplication.translate("SingleFlash", "镜像文件："))
-        self.file_dialog_button.setText(QCoreApplication.translate("SingleFlash", "添加镜像文件"))
-        self.image_table_groupbox.setTitle(QCoreApplication.translate("SingleFlash", "镜像文件内容："))
+        self.image_file_label.setText(
+            QCoreApplication.translate("SingleFlash", "镜像文件：")
+        )
+        self.file_dialog_button.setText(
+            QCoreApplication.translate("SingleFlash", "添加镜像文件")
+        )
+        self.image_table_groupbox.setTitle(
+            QCoreApplication.translate("SingleFlash", "镜像文件内容：")
+        )
 
-        self.target_media_region_group.setTitle(QCoreApplication.translate("SingleFlash", "目标存储介质："))
-        self.device_list_region_group.setTitle(QCoreApplication.translate("SingleFlash", "设备列表："))
-        self.list_device_button.setText(QCoreApplication.translate("SingleFlash", "刷新设备列表"))
+        self.target_media_region_group.setTitle(
+            QCoreApplication.translate("SingleFlash", "目标存储介质：")
+        )
+        self.device_list_region_group.setTitle(
+            QCoreApplication.translate("SingleFlash", "设备列表：")
+        )
+        self.list_device_button.setText(
+            QCoreApplication.translate("SingleFlash", "刷新设备列表")
+        )
         self.start_button.setText(QCoreApplication.translate("SingleFlash", "开始烧录"))
-        self.advanced_setting_button.setText(QCoreApplication.translate("SingleFlash", "高级设置"))
-        self.log_output_groupbox.setTitle(QCoreApplication.translate("SingleFlash", "日志输出："))
+        self.advanced_setting_button.setText(
+            QCoreApplication.translate("SingleFlash", "高级设置")
+        )
+        self.log_output_groupbox.setTitle(
+            QCoreApplication.translate("SingleFlash", "日志输出：")
+        )
 
     def create_file_browser_region(self):
         # 创建一个 QWidget 作为容器
@@ -332,9 +352,13 @@ class Ui_MainWindow(object):
         # 设置表头
         self.table.setHorizontalHeaderLabels(["", "镜像名称", "烧录地址", "镜像大小"])
 
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)  # 第一列固定
+        self.table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.Fixed
+        )  # 第一列固定
         self.table.setColumnWidth(0, 40)  # 具体设定宽度
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)  # 让第二列自动拉伸
+        self.table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.Stretch
+        )  # 让第二列自动拉伸
 
         # 在表头的第一列中添加“全选”复选框
         self.add_header_checkbox()
@@ -527,17 +551,80 @@ class Ui_MainWindow(object):
         # debugpy.debug_this_thread()
 
         """开始烧录按钮点击处理"""
+        # 如果当前在等待设备状态，则取消等待
+        if self.waiting_for_device:
+            self.cancel_waiting_for_device()
+            return
+
         # 验证输入
         if not self.validate_inputs():
             return
 
+        # 检查是否有选中的设备
+        device_path = self.device_address_combo.currentText()
+        if not device_path or device_path.strip() == "":
+            # 没有设备，进入等待模式
+            self.start_waiting_for_device()
+            return
+
+        # 有设备，直接开始烧录
+        self.start_actual_flash()
+
+    def start_waiting_for_device(self):
+        """开始等待设备模式"""
+        self.waiting_for_device = True
+        self.start_button.setText("取消等待")
+        self.progress_bar.setFormat("等待设备连接...")
+        self.progress_bar.setValue(0)
         self.progress_bar.setStyleSheet(CommonWidgetStyles.QProgressBar_css())
+
+        logger.info("没有检测到设备，等待设备连接...")
+
+        # 启动等待定时器，每秒检查一次设备
+        self.waiting_timer = QTimer()
+        self.waiting_timer.timeout.connect(self.check_device_connection)
+        self.waiting_timer.start(1000)  # 每秒检查一次
+
+    def cancel_waiting_for_device(self):
+        """取消等待设备"""
+        self.waiting_for_device = False
+        if self.waiting_timer:
+            self.waiting_timer.stop()
+            self.waiting_timer = None
+
+        self.start_button.setText("开始烧录")
+        self.progress_bar.setFormat("%p%")
+        self.progress_bar.setValue(0)
+
+        logger.info("用户取消等待设备")
+
+    def check_device_connection(self):
+        """检查设备连接状态"""
+        if not self.waiting_for_device:
+            return
+
+        # 检查是否有设备连接
+        device_path = self.device_address_combo.currentText()
+        if device_path and device_path.strip() != "":
+            # 发现设备，自动开始烧录
+            logger.info(f"检测到设备: {device_path}，开始烧录")
+            self.cancel_waiting_for_device()
+            self.start_actual_flash()
+
+    def start_actual_flash(self):
+        """开始实际的烧录过程"""
+        self.progress_bar.setStyleSheet(CommonWidgetStyles.QProgressBar_css())
+        self.progress_bar.setFormat("%p%")
 
         config = utils.load_config()
         log_level = config.get("AdvancedSettings", "log_level", fallback="INFO")
         custom_loader = config.get("AdvancedSettings", "custom_loader", fallback=None)
-        loader_address = int(config.get("AdvancedSettings", "loader_address", fallback="0x80360000"), 0)
-        auto_reboot = config.getboolean("AdvancedSettings", "auto_reboot", fallback=False)
+        loader_address = int(
+            config.get("AdvancedSettings", "loader_address", fallback="0x80360000"), 0
+        )
+        auto_reboot = config.getboolean(
+            "AdvancedSettings", "auto_reboot", fallback=False
+        )
 
         device_path = self.device_address_combo.currentText()
 
@@ -555,9 +642,15 @@ class Ui_MainWindow(object):
             "loader_address": loader_address,
             "log_level": log_level,
             "media_type": self.get_media_type(),
-            "kdimg-path": (self.file_path_edit.text() if self.img_list_mode == "kdimg" else None),
+            "kdimg-path": (
+                self.file_path_edit.text() if self.img_list_mode == "kdimg" else None
+            ),
             "addr_filename": self.get_addr_filename_pairs(),
-            "selected_partitions": (self.get_selected_partition_names() if self.img_list_mode == "kdimg" else None),
+            "selected_partitions": (
+                self.get_selected_partition_names()
+                if self.img_list_mode == "kdimg"
+                else None
+            ),
         }
 
         logger.info(f"开始烧录: {params}")
@@ -580,7 +673,9 @@ class Ui_MainWindow(object):
             self.flash_thread = FlashThread(params)
             self.flash_thread.progress_signal.connect(self.update_progress_bar)
             self.flash_thread.finished.connect(self.handle_flash_result)
-            self.flash_thread.error_signal.connect(self.display_flash_error)  # Connect new error signal
+            self.flash_thread.error_signal.connect(
+                self.display_flash_error
+            )  # Connect new error signal
             self.flash_thread.start()
 
         # 禁用按钮防止重复点击
@@ -596,12 +691,15 @@ class Ui_MainWindow(object):
         self.progress_bar.setValue(progress)
 
         # 记录日志
-        logger.debug(f"烧录进度: {progress}% ({self.sim_elapsed}/{self.sim_total_time}秒)")
+        logger.debug(
+            f"烧录进度: {progress}% ({self.sim_elapsed}/{self.sim_total_time}秒)"
+        )
 
         # 完成处理
         if self.sim_elapsed >= self.sim_total_time:
             self.sim_timer.stop()
             self.start_button.setEnabled(True)
+            self.start_button.setText("开始烧录")
             logger.success("烧录模拟完成！")
 
     def validate_inputs(self):
@@ -683,15 +781,19 @@ class Ui_MainWindow(object):
     def handle_flash_result(self):
         """处理烧录结果"""
         self.start_button.setEnabled(True)
+        self.start_button.setText("开始烧录")
 
     @Slot(str)
     def display_flash_error(self, error_message):
         """显示烧录错误信息，并更新进度条状态"""
         self.progress_bar.setFormat("烧录失败：100%")  # Set format to error message
-        self.progress_bar.setValue(100)  # Reset value or set to a specific error value if desired
+        self.progress_bar.setValue(
+            100
+        )  # Reset value or set to a specific error value if desired
         # 设置红色背景（QProgressBar 的 chunk 是进度条填充部分）
         self.progress_bar.setStyleSheet(CommonWidgetStyles.QProgressBar_css_error())
         self.start_button.setEnabled(True)  # Re-enable button on error
+        self.start_button.setText("开始烧录")  # Reset button text
 
     def refresh_device_list(self):
         """调用 k230_flash_python -l 获取 USB 设备列表，并保持选中状态"""
@@ -761,7 +863,9 @@ class FlashThread(QThread):
         if self.params["device_path"]:
             args_list.extend(["--device-path", self.params["device_path"]])
         if self.params["custom_loader"]:
-            args_list.extend(["--custom-loader", "--loader-file", self.params["loader_file"]])
+            args_list.extend(
+                ["--custom-loader", "--loader-file", self.params["loader_file"]]
+            )
         if self.params["loader_address"]:
             args_list.extend(["--loader-address", hex(self.params["loader_address"])])
         if self.params["log_level"]:
