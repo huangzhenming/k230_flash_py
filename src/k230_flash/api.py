@@ -79,13 +79,17 @@ def _flash_firmware(
                 loader_address=loader_address,
                 progress_callback=progress_callback,
             )
-            # 释放旧设备资源，刷新 USB 设备列表
-            dev.reset()  # Reset the device to clear any state
-            usb.util.dispose_resources(dev)
-            dev = None  # Set dev to None after disposing
-            # 刷新 pyusb 以重新枚举设备
-            refresh_pyusb_after_reboot()
-            logger.debug("刷新 pyusb 以重新枚举设备")
+            
+            try:
+                # 释放旧设备资源，刷新 USB 设备列表
+                dev.reset()  # Reset the device to clear any state
+                usb.util.dispose_resources(dev)
+                dev = None  # Set dev to None after disposing
+                # 刷新 pyusb 以重新枚举设备
+                refresh_pyusb_after_reboot()
+                logger.debug("刷新 pyusb 以重新枚举设备")
+            except Exception as e:
+                pass
 
             dev, port_path = find_device(port_path=port_path)
             if dev is None:
