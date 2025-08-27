@@ -218,7 +218,7 @@ if __name__ == "__main__":
 
 ### 📥 下载安装
 
-您可以从 [GitHub Releases](https://github.com/kendryte/k230_flash_python/releases) 页面下载最新版本的预编译可执行文件。下载后直接运行即可，无需安装 Python 环境。
+您可以从 [GitHub Releases](https://github.com/kendryte/k230_flash_py/releases) 页面下载最新版本的预编译可执行文件。下载后直接运行即可，无需安装 Python 环境。
 
 GUI 工具的详细使用说明请参考 [K230 Flash GUI 使用手册](src/gui/k230_flash_gui.md)。
 

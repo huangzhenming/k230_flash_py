@@ -462,7 +462,7 @@ class Ui_MainWindow(object):
             QtWidgets.QSizePolicy.Expanding,  # 水平扩展
             QtWidgets.QSizePolicy.Fixed,  # 垂直固定
         )
-        # self.refresh_device_list()  # 加载 USB 设备列表,默认不加载，k230_flash_python 会自动检测第1个设备，更方便
+        # self.refresh_device_list()  # 加载 USB 设备列表,默认不加载，k230_flash 会自动检测第1个设备，更方便
         self.list_device_button = QPushButton("刷新设备列表")
         self.list_device_button.setFixedWidth(130)  # 固定宽度
         self.list_device_button.setStyleSheet(CommonWidgetStyles.QPushButton_css())
@@ -796,7 +796,7 @@ class Ui_MainWindow(object):
         self.start_button.setText("开始烧录")  # Reset button text
 
     def refresh_device_list(self):
-        """调用 k230_flash_python -l 获取 USB 设备列表，并保持选中状态"""
+        """调用 k230_flash -l 获取 USB 设备列表，并保持选中状态"""
         try:
             device_list_json = list_devices()
             device_list = json.loads(device_list_json)
@@ -888,7 +888,7 @@ class FlashThread(QThread):
 
         try:
             logger.info("准备开始烧录...")
-            logger.info(f"pass args_list to k230_flash_python: {args_list}")
+            logger.info(f"pass args_list to k230_flash: {args_list}")
             cmd_main.main(
                 args_list,
                 progress_callback=gui_progress_callback,

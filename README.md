@@ -218,7 +218,7 @@ In addition to the command-line tool and Python library, this project also provi
 
 ### 📥 Download and Installation
 
-You can download the latest version of pre-compiled executable files from the [GitHub Releases](https://github.com/kendryte/k230_flash_python/releases) page. After downloading, run directly without installing Python environment.
+You can download the latest version of pre-compiled executable files from the [GitHub Releases](https://github.com/kendryte/k230_flash_py/releases) page. After downloading, run directly without installing Python environment.
 
 For detailed usage instructions of the GUI tool, please refer to [K230 Flash GUI User Manual](src/gui/k230_flash_gui.md).
 
