@@ -25,12 +25,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install build
       - name: Build package
-        run: python -m build
+        run: |
+          python -m build
+          ls -al
+          ls -al dist/
+      - name: Upload wheel and sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package
+          path: dist/*
 
   gui-release:
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -45,6 +53,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install pyinstaller
+          pip install -r requirements.txt
           pip install -e .
       - name: Install UPX (Windows only)
         if: matrix.os == 'windows-latest'
@@ -60,10 +69,6 @@ jobs:
           pwd
           ls -al
           pyinstaller --clean k230_flash_gui.spec
-      - name: Compress exe with UPX
-        if: matrix.os == 'windows-latest'
-        run: |
-          upx --best --lzma dist/k230_flash_gui.exe || true
       - name: Archive build artifact
         uses: actions/upload-artifact@v4
         with:
