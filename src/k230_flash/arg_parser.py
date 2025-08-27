@@ -23,9 +23,13 @@ class MultiModeAction(argparse.Action):
             original_path = Path(values[0])
             extracted_path = extract_if_compressed(original_path)
             if not extracted_path.suffix == ".kdimg":
-                parser.error(f"Error: {original_path} (extracted to {extracted_path}) is not a .kdimg file")
+                parser.error(
+                    f"Error: {original_path} (extracted to {extracted_path}) is not a .kdimg file"
+                )
             setattr(namespace, "kdimg_file", extracted_path)  # Parse as Path
-            setattr(namespace, "addr_filename_pairs", None)  # Set the other mode to None
+            setattr(
+                namespace, "addr_filename_pairs", None
+            )  # Set the other mode to None
             return
 
         # Otherwise, parse as [address, .img] pairs
@@ -42,7 +46,9 @@ class MultiModeAction(argparse.Action):
             original_path = Path(values[i + 1])
             extracted_path = extract_if_compressed(original_path)
             if not extracted_path.suffix == ".img":
-                parser.error(f"Error: {original_path} (extracted to {extracted_path}) is not an .img file")
+                parser.error(
+                    f"Error: {original_path} (extracted to {extracted_path}) is not an .img file"
+                )
 
             pairs.append((address, extracted_path))
 
@@ -82,7 +88,9 @@ def parse_arguments(args_list=None):
         ),
     )
 
-    parser.add_argument("-l", "--list-devices", action="store_true", help="List available USB devices")
+    parser.add_argument(
+        "-l", "--list-devices", action="store_true", help="List available USB devices"
+    )
 
     parser.add_argument(
         "-d",
@@ -116,7 +124,23 @@ def parse_arguments(args_list=None):
         help="Media type: EMMC, SDCARD, SPI_NAND, SPI_NOR, OTP",
     )
 
-    parser.add_argument("--auto-reboot", action="store_true", help="Reboot automatically after writing")
+    parser.add_argument(
+        "--auto-reboot", action="store_true", help="Reboot automatically after writing"
+    )
+
+    parser.add_argument(
+        "--device-timeout",
+        type=int,
+        default=300,
+        help="Device wait timeout in seconds when device path is specified (default: 300)",
+    )
+
+    parser.add_argument(
+        "--device-retry-interval",
+        type=int,
+        default=1,
+        help="Device retry interval in seconds when waiting for device (default: 1)",
+    )
 
     parser.add_argument(
         "--kdimg-select",

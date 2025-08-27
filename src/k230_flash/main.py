@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
+import time
 from pathlib import Path
 
 from loguru import logger
@@ -9,6 +10,51 @@ from . import api
 from .arg_parser import parse_arguments
 from .constants import FULL_LOG_FILE_PATH
 from .progress import progress_callback as default_progress_callback
+from .usb_utils import find_device
+
+
+def _wait_for_device_ready(device_path=None, timeout_seconds=300, retry_interval=2):
+    """
+    等待指定路径的设备就绪
+
+    :param device_path: 设备路径，例如 "1-2"
+    :param timeout_seconds: 最大等待时间（秒），默认5分钟
+    :param retry_interval: 重试间隔（秒），默认2秒
+    :raises TimeoutError: 超时未找到设备时抛出异常
+    """
+    start_time = time.time()
+    retry_count = 0
+
+    logger.info(f"等待设备就绪: {device_path}")
+
+    while True:
+        try:
+            # 尝试查找设备
+            dev, found_path = find_device(port_path=device_path)
+            if dev is not None:
+                logger.info(f"设备已就绪: {found_path}")
+                return
+        except Exception as e:
+            # 设备未找到，继续等待
+            retry_count += 1
+            elapsed_time = time.time() - start_time
+
+            # 检查是否超时
+            if elapsed_time >= timeout_seconds:
+                logger.error(f"等待设备超时 ({timeout_seconds}秒): {device_path}")
+                raise TimeoutError(
+                    f"等待设备 {device_path} 就绪超时，已等待 {timeout_seconds} 秒"
+                )
+
+            # 每30秒或前几次重试时输出等待信息
+            if retry_count <= 3 or retry_count % 15 == 0:
+                remaining_time = timeout_seconds - elapsed_time
+                logger.info(
+                    f"设备 {device_path} 暂未就绪，继续等待... (剩余 {remaining_time:.0f}秒)"
+                )
+
+            # 等待后重试
+            time.sleep(retry_interval)
 
 
 def main(args_list=None, progress_callback=None, use_external_logging=False):
@@ -64,8 +110,21 @@ def main(args_list=None, progress_callback=None, use_external_logging=False):
             print(devices_json)
             return
 
+        # 等待设备就绪
+        timeout_seconds = getattr(args, "device_timeout", 300)
+        retry_interval = getattr(args, "device_retry_interval", 1)
+        _wait_for_device_ready(
+            args.device_path.strip(),
+            timeout_seconds=timeout_seconds,
+            retry_interval=retry_interval,
+        )
+
         # Refactored logic to call API functions
-        if args.kdimg_file and hasattr(args, "kdimg_selected_partitions") and args.kdimg_selected_partitions:
+        if (
+            args.kdimg_file
+            and hasattr(args, "kdimg_selected_partitions")
+            and args.kdimg_selected_partitions
+        ):
             # Mode 3: kdimg file with selected partitions
             api.flash_kdimg(
                 kdimg_file=args.kdimg_file,
@@ -80,7 +139,9 @@ def main(args_list=None, progress_callback=None, use_external_logging=False):
             )
         elif args.kdimg_file and args.addr_filename_pairs:
             # This should not happen with the corrected arg_parser, but keep for safety
-            logger.warning("Unexpected combination: kdimg_file with addr_filename_pairs. Using kdimg mode.")
+            logger.warning(
+                "Unexpected combination: kdimg_file with addr_filename_pairs. Using kdimg mode."
+            )
             api.flash_kdimg(
                 kdimg_file=args.kdimg_file,
                 port_path=args.device_path,
