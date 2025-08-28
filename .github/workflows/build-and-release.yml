@@ -149,6 +149,9 @@ jobs:
               pip install -r requirements.txt
               pip install -e .
 
+              wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool
+              chmod +x /usr/local/bin/appimagetool
+
               # 构建 GUI
               cd src/gui
               pyinstaller --clean k230_flash_gui.spec
