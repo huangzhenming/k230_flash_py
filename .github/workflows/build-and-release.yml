@@ -3,13 +3,11 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*.*.*'   # 只有推送 tag 时才运行，方便做 release
-    branches:
-      - main
-      - dev
-      - dev_huangzhenming
-      - feat/**
-  workflow_dispatch:  # 允许手动触发
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   python-build:
@@ -27,56 +25,170 @@ jobs:
       - name: Build package
         run: |
           python -m build
-          ls -al
           ls -al dist/
-      - name: Upload wheel and sdist
+      - name: Configure Git safe directory
+        run: |
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME}-$(git rev-parse --short HEAD)"
+          else
+            VERSION="${GITHUB_REF_NAME}-$(git rev-parse --short HEAD)"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "VERSION=$VERSION"
+      - name: Zip python package
+        run: |
+          mkdir -p upload
+          zip -j upload/k230-flash-${{ env.VERSION }}.zip dist/*
+      - name: Upload Python Release Asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: upload/k230-flash-${{ env.VERSION }}.zip
+          prerelease: true
+      - name: Upload Python Nightly Artifact
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
         with:
-          name: python-package
-          path: dist/*
+          name: k230-flash-${{ env.VERSION }}
+          path: upload/k230-flash-${{ env.VERSION }}.zip
 
   gui-release:
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-2022, macos-13]
+        include:
+        - os: ubuntu-latest
+          label: ubuntu
+        - os: windows-2022
+          label: windows
+        - os: macos-13
+          label: macos
     runs-on: ${{ matrix.os }}
     defaults:
       run:
         shell: bash
+
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install pyinstaller and project
+
+      - name: Install UPX / 7zip (Windows only)
+        if: matrix.label == 'windows'
+        run: |
+          choco install upx -y
+          choco install 7zip -y
+      - name: Configure Git safe directory
+        run: |
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+      # Determine version
+      - name: Determine version
+        id: version
+        run: |
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME}-$(git rev-parse --short HEAD)"
+          else
+            VERSION="${GITHUB_REF_NAME}-$(git rev-parse --short HEAD)"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "VERSION=$VERSION"
+
+      # PyInstaller 构建 GUI
+      - name: Build GUI with pyinstaller
         run: |
           pip install --upgrade pip
           pip install pyinstaller
           pip install -r requirements.txt
           pip install -e .
-      - name: Install UPX (Windows only)
-        if: matrix.os == 'windows-latest'
-        run: choco install upx -y
-      - name: Debug working directory
-        run: |
-          pwd
-          ls -al
-          ls -al src/gui
-      - name: Build GUI with pyinstaller
-        run: |
           cd src/gui
-          pwd
-          ls -al
           pyinstaller --clean k230_flash_gui.spec
-      - name: Archive build artifact
+
+      # Windows zip
+      - name: Package GUI (Windows)
+        if: matrix.label == 'windows'
+        run: |
+          mkdir -p upload
+          cd src/gui/dist
+          7z a ../../../upload/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.zip k230_flash_gui.exe
+
+      # macOS dmg
+      - name: Package GUI (macOS)
+        if: matrix.label == 'macos'
+        run: |
+          REPO_ROOT=$(pwd)
+          UPLOAD_DIR="$REPO_ROOT/upload"
+          mkdir -p "$UPLOAD_DIR"
+
+          TMPDIR=$(mktemp -d)
+          mkdir -p "$TMPDIR/k230_flash_gui.app/Contents/MacOS"
+          cp src/gui/dist/k230_flash_gui "$TMPDIR/k230_flash_gui.app/Contents/MacOS/"
+
+          cd "$TMPDIR"
+          hdiutil create -volname "k230_flash_gui" \
+            -srcfolder "k230_flash_gui.app" \
+            -ov -format UDZO \
+            "$UPLOAD_DIR/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.dmg"
+
+      # Ubuntu AppImage using Docker + FUSE
+      - name: Package GUI (Linux with Docker & FUSE)
+        if: matrix.label == 'ubuntu'
+        run: |
+          mkdir -p upload
+          docker run --rm \
+            --privileged \
+            --device /dev/fuse \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            python:3.11-bullseye \
+            bash -c "
+              apt-get update && apt-get install -y build-essential wget curl git libfuse2 fuse
+              pip install --upgrade pip
+              pip install pyinstaller
+              pip install -r requirements.txt
+              pip install -e .
+
+              wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool
+              chmod +x /usr/local/bin/appimagetool
+
+              # 构建 GUI
+              cd src/gui
+              pyinstaller --clean k230_flash_gui.spec
+
+              # 创建 AppDir
+              APPDIR=\$(pwd)/AppDir
+              rm -rf \$APPDIR
+              mkdir -p \$APPDIR/usr/bin
+              cp dist/k230_flash_gui \$APPDIR/usr/bin/
+
+              mkdir -p \$APPDIR/usr/share/pixmaps
+              cp -r assets \$APPDIR/usr/share/
+
+              echo '[Desktop Entry]'          >  \$APPDIR/k230_flash_gui.desktop
+              echo 'Type=Application'        >> \$APPDIR/k230_flash_gui.desktop
+              echo 'Name=k230_flash_gui'     >> \$APPDIR/k230_flash_gui.desktop
+              echo 'Exec=/usr/bin/k230_flash_gui' >> \$APPDIR/k230_flash_gui.desktop
+              echo 'Icon=k230_flash_gui'     >> \$APPDIR/k230_flash_gui.desktop
+              echo 'Categories=Utility;'     >> \$APPDIR/k230_flash_gui.desktop
+
+              cp assets/k230_flash_gui_logo.png \$APPDIR/k230_flash_gui.png
+
+              # 打包 AppImage
+              ARCH=x86_64 appimagetool --no-appstream \$APPDIR /workspace/upload/k230_flash_gui-ubuntu-${{ env.VERSION }}.AppImage
+            "
+
+      # 上传 release
+      - name: Upload GUI Release Asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: upload/*
+          prerelease: true
+
+      - name: Upload GUI Nightly Artifact
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
         with:
-          name: gui-${{ matrix.os }}
-          path: src/gui/dist/
-
-      # - name: Upload Release Asset
-      #   uses: softprops/action-gh-release@v2
-      #   if: startsWith(github.ref, 'refs/tags/')
-      #   with:
-      #     files: src/gui/dist/**
+          name: k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}
+          path: upload/*
