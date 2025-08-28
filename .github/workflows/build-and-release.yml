@@ -26,6 +26,9 @@ jobs:
         run: |
           python -m build
           ls -al dist/
+      - name: Configure Git safe directory
+        run: |
+          git config --global --add safe.directory $GITHUB_WORKSPACE
       - name: Determine version
         id: version
         run: |
@@ -101,7 +104,9 @@ jobs:
         run: |
           choco install upx -y
           choco install 7zip -y
-
+      - name: Configure Git safe directory
+        run: |
+          git config --global --add safe.directory $GITHUB_WORKSPACE
       # Determine version
       - name: Determine version
         id: version
