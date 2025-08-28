@@ -136,7 +136,7 @@ jobs:
         if: matrix.label == 'ubuntu'
         run: |
           mkdir -p upload
-          docker run --rm -it \
+          docker run --rm \
             --privileged \
             --device /dev/fuse \
             -v "${{ github.workspace }}:/workspace" \
