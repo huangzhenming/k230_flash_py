@@ -10,13 +10,19 @@
 - 国际化
 
 ```shell
-$ lupdate main.py -ts english.ts
-$ linguist.exe english.ts
-$ lrelease english.ts -qm english.qm
-# 在菜单中选择发布为english.qm
+# 更新翻译文件（包含所有需要翻译的Python文件）
+$ pyside6-lupdate main.py single_flash.py advanced_settings.py batch_flash.py -ts english.ts
+
+# 使用Qt Linguist编辑翻译
+$ pyside6-linguist.exe english.ts
+# 在菜单中选择发布为english.qm，或者使用命令行：
+$ pyside6-lrelease english.ts -qm english.qm
+```
 
 - 引入资源文件
+
 # 然后将english.qm配置到resources.qrc中
+
 <qresource prefix="/translations">
     <file>english.qm</file>
   </qresource>

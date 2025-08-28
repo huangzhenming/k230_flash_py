@@ -164,6 +164,9 @@ class Ui_MainWindow(object):
         self.device_refresh_timer.timeout.connect(self.refresh_device_list)
         self.device_refresh_timer.start(1000)  # 每 1000ms 调用一次
 
+        # 初始化界面文本（必须在所有UI元素创建完成后调用）
+        self.update_ui_text()
+
     def update_ui_text(self):
         # self.setWindowTitle(QCoreApplication.translate("SingleFlash", "单机烧录"))
 
@@ -193,6 +196,38 @@ class Ui_MainWindow(object):
         self.log_output_groupbox.setTitle(
             QCoreApplication.translate("SingleFlash", "日志输出：")
         )
+
+        # 更新表格头部标签
+        self.update_table_headers()
+
+        # 更新复选框文本
+        if hasattr(self, "header_checkbox"):
+            self.header_checkbox.setText(
+                QCoreApplication.translate("SingleFlash", "全选")
+            )
+
+    def update_table_headers(self):
+        """更新表格头部标签"""
+        if hasattr(self, "table"):
+            headers = [
+                "",  # 第一列空白，用于复选框
+                QCoreApplication.translate("SingleFlash", "镜像名称"),
+                QCoreApplication.translate("SingleFlash", "烧录地址"),
+                QCoreApplication.translate("SingleFlash", "镜像大小"),
+            ]
+            self.table.setHorizontalHeaderLabels(headers)
+
+    def get_translated_text(self, key):
+        """获取翻译文本的辅助方法"""
+        translations = {
+            "start_flash": QCoreApplication.translate("SingleFlash", "开始烧录"),
+            "cancel_waiting": QCoreApplication.translate("SingleFlash", "取消等待"),
+            "waiting_device": QCoreApplication.translate(
+                "SingleFlash", "等待设备连接..."
+            ),
+            "progress_format": "%p%",  # 进度条格式不需要翻译
+        }
+        return translations.get(key, key)
 
     def create_file_browser_region(self):
         # 创建一个 QWidget 作为容器
@@ -349,8 +384,10 @@ class Ui_MainWindow(object):
         # 设置列宽可伸缩
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
 
-        # 设置表头
-        self.table.setHorizontalHeaderLabels(["", "镜像名称", "烧录地址", "镜像大小"])
+        # 设置表头（初始化为空，由update_table_headers方法更新）
+        self.table.setColumnCount(4)
+        # 初始化时设置为空标签，等待update_ui_text调用
+        self.table.setHorizontalHeaderLabels(["", "", "", ""])
 
         self.table.horizontalHeader().setSectionResizeMode(
             0, QHeaderView.Fixed
@@ -377,7 +414,7 @@ class Ui_MainWindow(object):
 
         # 创建一个 QCheckBox 作为表头的复选框
         self.header_checkbox = QCheckBox()
-        self.header_checkbox.setText("全选")
+        # 初始化时不设置文本，等待update_ui_text调用
         self.header_checkbox.setStyleSheet(CommonWidgetStyles.QCheckBox_css())
         self.header_checkbox.stateChanged.connect(self.toggle_all_checkboxes)
 
@@ -499,7 +536,7 @@ class Ui_MainWindow(object):
         layout.addWidget(self.progress_bar)
 
         # 创建 "开始烧录" 按钮
-        self.start_button = QPushButton("开始烧录")
+        self.start_button = QPushButton()  # 初始化时不设置文本，等待update_ui_text调用
         self.advanced_setting_button = QPushButton("高级设置")
         layout.addWidget(self.start_button)
         layout.addWidget(self.advanced_setting_button)
@@ -573,8 +610,8 @@ class Ui_MainWindow(object):
     def start_waiting_for_device(self):
         """开始等待设备模式"""
         self.waiting_for_device = True
-        self.start_button.setText("取消等待")
-        self.progress_bar.setFormat("等待设备连接...")
+        self.start_button.setText(self.get_translated_text("cancel_waiting"))
+        self.progress_bar.setFormat(self.get_translated_text("waiting_device"))
         self.progress_bar.setValue(0)
         self.progress_bar.setStyleSheet(CommonWidgetStyles.QProgressBar_css())
 
@@ -592,8 +629,8 @@ class Ui_MainWindow(object):
             self.waiting_timer.stop()
             self.waiting_timer = None
 
-        self.start_button.setText("开始烧录")
-        self.progress_bar.setFormat("%p%")
+        self.start_button.setText(self.get_translated_text("start_flash"))
+        self.progress_bar.setFormat(self.get_translated_text("progress_format"))
         self.progress_bar.setValue(0)
 
         logger.info("用户取消等待设备")
@@ -699,7 +736,7 @@ class Ui_MainWindow(object):
         if self.sim_elapsed >= self.sim_total_time:
             self.sim_timer.stop()
             self.start_button.setEnabled(True)
-            self.start_button.setText("开始烧录")
+            self.start_button.setText(self.get_translated_text("start_flash"))
             logger.success("烧录模拟完成！")
 
     def validate_inputs(self):
@@ -781,7 +818,7 @@ class Ui_MainWindow(object):
     def handle_flash_result(self):
         """处理烧录结果"""
         self.start_button.setEnabled(True)
-        self.start_button.setText("开始烧录")
+        self.start_button.setText(self.get_translated_text("start_flash"))
 
     @Slot(str)
     def display_flash_error(self, error_message):
@@ -793,7 +830,9 @@ class Ui_MainWindow(object):
         # 设置红色背景（QProgressBar 的 chunk 是进度条填充部分）
         self.progress_bar.setStyleSheet(CommonWidgetStyles.QProgressBar_css_error())
         self.start_button.setEnabled(True)  # Re-enable button on error
-        self.start_button.setText("开始烧录")  # Reset button text
+        self.start_button.setText(
+            self.get_translated_text("start_flash")
+        )  # Reset button text
 
     def refresh_device_list(self):
         """调用 k230_flash -l 获取 USB 设备列表，并保持选中状态"""
