@@ -3,13 +3,8 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*.*.*'   # tag 触发正式 release
-    branches:
-      - main
-      - dev
-      - dev_huangzhenming
-      - feat/**
-  workflow_dispatch:  # 允许手动触发
+      - 'v*.*.*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -19,49 +14,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
           pip install build
-
       - name: Build package
         run: |
           python -m build
           ls -al dist/
-
       - name: Determine version
         id: version
         run: |
-          # tag push
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME}-$(git rev-parse --short HEAD)"
           else
-            # branch push
             VERSION="${GITHUB_REF_NAME}-$(git rev-parse --short HEAD)"
           fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "VERSION=$VERSION"
-
       - name: Zip python package
         run: |
           mkdir -p upload
           zip -j upload/k230-flash-${{ env.VERSION }}.zip dist/*
-
-      # tag release 上传到 GitHub Release
       - name: Upload Python Release Asset
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: upload/k230-flash-${{ env.VERSION }}.zip
           prerelease: true
-
-      # nightly 上传到 workflow artifact
       - name: Upload Python Nightly Artifact
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
@@ -73,13 +57,15 @@ jobs:
     strategy:
       matrix:
         include:
-        - os: ubuntu-22.04
+        - os: ubuntu-latest
           label: ubuntu
+          container: python:3.11-bullseye
         - os: windows-2022
           label: windows
         - os: macos-13
           label: macos
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container || '' }}
     defaults:
       run:
         shell: bash
@@ -87,12 +73,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      # Ubuntu container 安装依赖
+      - name: Install dependencies (Linux only)
+        if: matrix.label == 'ubuntu'
+        run: |
+          apt-get update
+          apt-get install -y build-essential wget curl git libfuse2 fuse
+          pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r requirements.txt
+          pip install -e .
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          mv appimagetool-x86_64.AppImage /usr/local/bin/appimagetool
 
-      - name: Install pyinstaller and project
+      # Windows & macOS 安装依赖
+      - name: Install pyinstaller and project (macOS & Windows)
+        if: matrix.label != 'ubuntu'
         run: |
           pip install --upgrade pip
           pip install pyinstaller
@@ -105,15 +102,7 @@ jobs:
           choco install upx -y
           choco install 7zip -y
 
-      - name: Install appimagetool (Linux only)
-        if: matrix.os == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y appstream fuse libfuse2
-          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x appimagetool-x86_64.AppImage
-          sudo mv appimagetool-x86_64.AppImage /usr/local/bin/appimagetool
-
+      # Determine version
       - name: Determine version
         id: version
         run: |
@@ -125,6 +114,7 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "VERSION=$VERSION"
 
+      # PyInstaller 构建 GUI
       - name: Build GUI with pyinstaller
         run: |
           cd src/gui
@@ -132,7 +122,7 @@ jobs:
 
       # Windows zip
       - name: Package GUI (Windows)
-        if: matrix.os == 'windows-2022'
+        if: matrix.label == 'windows'
         run: |
           mkdir -p upload
           cd src/gui/dist
@@ -140,40 +130,54 @@ jobs:
 
       # macOS dmg
       - name: Package GUI (macOS)
-        if: matrix.os == 'macos-13'
+        if: matrix.label == 'macos'
         run: |
-          mkdir -p upload
-          cd src/gui/dist
+          REPO_ROOT=$(pwd)              # 仓库根目录
+          UPLOAD_DIR="$REPO_ROOT/upload"
+          mkdir -p "$UPLOAD_DIR"
+
+          TMPDIR=$(mktemp -d)
+          cp src/gui/dist/k230_flash_gui "$TMPDIR/"
+          cd "$TMPDIR"
+
           hdiutil create -volname "k230_flash_gui" \
-            -srcfolder "k230_flash_gui.app" \
+            -srcfolder "." \
             -ov -format UDZO \
-            "../../../upload/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.dmg"
+            "$UPLOAD_DIR/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.dmg"
 
       # Ubuntu AppImage
       - name: Package GUI (Linux)
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.label == 'ubuntu'
         run: |
           mkdir -p upload
-          cd src/gui/dist
-          mkdir -p AppDir/usr/bin
-          cp k230_flash_gui AppDir/usr/bin/
-          # 从源目录复制assets，因为PyInstaller已经将其嵌入到可执行文件中
-          # 但AppImage仍需要图标文件
-          mkdir -p AppDir/usr/share/pixmaps
-          cp ../assets/k230_flash_gui_logo.png AppDir/usr/share/pixmaps/k230_flash_gui.png
-          cat > AppDir/k230_flash_gui.desktop <<EOF
-          [Desktop Entry]
-          Type=Application
-          Name=k230_flash_gui
-          Exec=k230_flash_gui
-          Icon=k230_flash_gui
-          Categories=Utility;
-          EOF
-          # 复制图标到AppDir根目录
-          cp ../assets/k230_flash_gui_logo.png AppDir/k230_flash_gui.png
-          # 使用--no-appstream参数避免AppStream验证问题，并设置ARCH环境变量
-          ARCH=x86_64 appimagetool --no-appstream AppDir "../../../upload/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.AppImage"
+          # 创建 AppDir
+          APPDIR=$(pwd)/AppDir
+          rm -rf "$APPDIR"
+          mkdir -p "$APPDIR/usr/bin"
 
+          cd src/gui/dist
+          cp k230_flash_gui "$APPDIR/usr/bin/"
+
+          mkdir -p "$APPDIR/usr/share/pixmaps"
+          cp -r ../assets "$APPDIR/usr/share/"
+
+          # Desktop 文件
+          cat > "$APPDIR/k230_flash_gui.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=k230_flash_gui
+Exec=/usr/bin/k230_flash_gui
+Icon=k230_flash_gui
+Categories=Utility;
+EOF
+
+          # 根目录图标
+          cp ../assets/k230_flash_gui_logo.png "$APPDIR/k230_flash_gui.png"
+
+          # 打包 AppImage
+          ARCH=x86_64 appimagetool --no-appstream "$APPDIR" "../../../upload/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.AppImage"
+
+      # 上传 release
       - name: Upload GUI Release Asset
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -187,3 +191,4 @@ jobs:
         with:
           name: k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}
           path: upload/*
+
