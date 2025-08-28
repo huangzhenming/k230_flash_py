@@ -109,7 +109,7 @@ jobs:
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y appstream
+          sudo apt-get install -y appstream fuse libfuse2
           wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
           sudo mv appimagetool-x86_64.AppImage /usr/local/bin/appimagetool
@@ -171,7 +171,8 @@ jobs:
           EOF
           # 复制图标到AppDir根目录
           cp ../assets/k230_flash_gui_logo.png AppDir/k230_flash_gui.png
-          appimagetool AppDir "../../../upload/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.AppImage"
+          # 使用--no-appstream参数避免AppStream验证问题，并设置ARCH环境变量
+          ARCH=x86_64 appimagetool --no-appstream AppDir "../../../upload/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.AppImage"
 
       - name: Upload GUI Release Asset
         if: startsWith(github.ref, 'refs/tags/')
