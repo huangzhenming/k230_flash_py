@@ -105,14 +105,21 @@ jobs:
           choco install upx -y
           choco install 7zip -y
 
+      - name: Install appimagetool (Linux only)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y appstream
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          sudo mv appimagetool-x86_64.AppImage /usr/local/bin/appimagetool
+
       - name: Determine version
         id: version
         run: |
-          # tag push
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME}-$(git rev-parse --short HEAD)"
           else
-            # branch push
             VERSION="${GITHUB_REF_NAME}-$(git rev-parse --short HEAD)"
           fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
@@ -123,23 +130,55 @@ jobs:
           cd src/gui
           pyinstaller --clean k230_flash_gui.spec
 
-      - name: Zip GUI build
+      # Windows zip
+      - name: Package GUI (Windows)
+        if: matrix.os == 'windows-2022'
         run: |
           mkdir -p upload
-          7z a upload/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.zip src/gui/dist/*
+          cd src/gui/dist
+          7z a ../../../upload/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.zip src/gui/dist/k230_flash_gui.exe
 
-      # tag release 上传到 GitHub Release
+      # macOS dmg
+      - name: Package GUI (macOS)
+        if: matrix.os == 'macos-13'
+        run: |
+          mkdir -p upload
+          cd src/gui/dist
+          hdiutil create -volname "k230_flash_gui" \
+            -srcfolder "k230_flash_gui.app" \
+            -ov -format UDZO \
+            "../../../upload/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.dmg"
+
+      # Ubuntu AppImage
+      - name: Package GUI (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          mkdir -p upload
+          cd src/gui/dist
+          mkdir -p AppDir/usr/bin
+          cp k230_flash_gui AppDir/usr/bin/
+          cp -r assets AppDir/usr/bin/ || true
+          cat > AppDir/k230_flash_gui.desktop <<EOF
+          [Desktop Entry]
+          Type=Application
+          Name=k230_flash_gui
+          Exec=k230_flash_gui
+          Icon=k230_flash_gui
+          Categories=Utility;
+          EOF
+          cp assets/k230_flash_gui_logo.png AppDir/k230_flash_gui.png
+          appimagetool AppDir "../../../upload/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.AppImage"
+
       - name: Upload GUI Release Asset
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: upload/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.zip
+          files: upload/*
           prerelease: true
 
-      # nightly 上传到 workflow artifact
       - name: Upload GUI Nightly Artifact
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
         with:
           name: k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}
-          path: upload/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.zip
+          path: upload/*

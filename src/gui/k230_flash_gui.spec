@@ -3,19 +3,15 @@ from PyInstaller.utils.hooks import collect_data_files
 import os
 from pathlib import Path
 
-# 当前 spec 文件所在目录
 spec_dir = Path.cwd()
-
-# 收集 PySide6 数据文件
 datas = collect_data_files("PySide6")
-
 block_cipher = None
 
 a = Analysis(
     ["main.py"],
     pathex=[
-        str(spec_dir),                 # src/gui
-        str(spec_dir.parent),          # src
+        str(spec_dir),
+        str(spec_dir.parent),
     ],
     binaries=[],
     datas=datas + [
@@ -27,19 +23,16 @@ a = Analysis(
         (str(spec_dir.parent / "k230_flash" / "loaders"), "k230_flash/loaders"),
     ],
     hiddenimports=[
-        # PySide6 相关
         "PySide6.QtWidgets",
-        "PySide6.QtGui", 
+        "PySide6.QtGui",
         "PySide6.QtCore",
         "PySide6.QtNetwork",
-        # 核心依赖
         "loguru",
         "usb",
         "usb.core",
         "usb.util",
         "usb.backend",
         "usb.backend.libusb1",
-        # k230_flash 模块
         "k230_flash",
         "k230_flash.api",
         "k230_flash.burners",
@@ -51,7 +44,6 @@ a = Analysis(
         "k230_flash.arg_parser",
         "k230_flash.kdimg_utils",
         "k230_flash.main",
-        # GUI 模块
         "advanced_settings",
         "batch_flash",
         "common_widget_sytles",
@@ -69,6 +61,7 @@ a = Analysis(
 )
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -79,6 +72,14 @@ exe = EXE(
     debug=False,
     strip=False,
     upx=True,
-    console=False,  # GUI 应用不显示控制台
+    console=False,
     icon="assets/k230_flash_gui_logo.ico",
+)
+
+# macOS 下生成 .app 包
+app = BUNDLE(
+    exe,
+    name="k230_flash_gui.app",
+    icon="assets/k230_flash_gui_logo.icns",
+    bundle_identifier="com.hzm.k230_flash_gui"
 )
