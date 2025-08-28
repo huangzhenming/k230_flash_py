@@ -137,11 +137,11 @@ jobs:
           mkdir -p "$UPLOAD_DIR"
 
           TMPDIR=$(mktemp -d)
-          cp src/gui/dist/k230_flash_gui "$TMPDIR/"
-          cd "$TMPDIR"
+          cp src/gui/dist/k230_flash_gui "$TMPDIR/k230_flash_gui.app/Contents/MacOS/"
 
+          cd "$TMPDIR"
           hdiutil create -volname "k230_flash_gui" \
-            -srcfolder "." \
+            -srcfolder "k230_flash_gui.app" \
             -ov -format UDZO \
             "$UPLOAD_DIR/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.dmg"
 
@@ -163,13 +163,13 @@ jobs:
 
           # Desktop 文件
           cat > "$APPDIR/k230_flash_gui.desktop" <<EOF
-[Desktop Entry]
-Type=Application
-Name=k230_flash_gui
-Exec=/usr/bin/k230_flash_gui
-Icon=k230_flash_gui
-Categories=Utility;
-EOF
+          [Desktop Entry]
+          Type=Application
+          Name=k230_flash_gui
+          Exec=/usr/bin/k230_flash_gui
+          Icon=k230_flash_gui
+          Categories=Utility;
+          EOF
 
           # 根目录图标
           cp ../assets/k230_flash_gui_logo.png "$APPDIR/k230_flash_gui.png"
