@@ -111,9 +111,8 @@ jobs:
           cd src/gui
           pyinstaller --clean k230_flash_gui.spec
 
-      # Windows zip
-      - name: Package GUI (Windows)
-        if: matrix.label == 'windows'
+      # zip
+      - name: Package GUI Zip
         run: |
           mkdir -p upload
           cd src/gui/dist
