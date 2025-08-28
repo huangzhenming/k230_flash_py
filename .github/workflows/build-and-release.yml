@@ -62,13 +62,11 @@ jobs:
         include:
         - os: ubuntu-latest
           label: ubuntu
-          container: python:3.11-bullseye
         - os: windows-2022
           label: windows
         - os: macos-13
           label: macos
     runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container || '' }}
     defaults:
       run:
         shell: bash
@@ -76,31 +74,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Ubuntu container 安装依赖
-      - name: Install dependencies (Linux only)
-        if: matrix.label == 'ubuntu'
-        run: |
-          apt-get update
-          apt-get install -y build-essential wget curl git libfuse2 fuse
-          pip install --upgrade pip
-          pip install pyinstaller
-          pip install -r requirements.txt
-          pip install -e .
-          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x appimagetool-x86_64.AppImage
-          mv appimagetool-x86_64.AppImage /usr/local/bin/appimagetool
-
-      # Windows & macOS 安装依赖
-      - name: Install pyinstaller and project (macOS & Windows)
-        if: matrix.label != 'ubuntu'
-        run: |
-          pip install --upgrade pip
-          pip install pyinstaller
-          pip install -r requirements.txt
-          pip install -e .
-
       - name: Install UPX / 7zip (Windows only)
-        if: matrix.os == 'windows-2022'
+        if: matrix.label == 'windows'
         run: |
           choco install upx -y
           choco install 7zip -y
@@ -111,6 +86,7 @@ jobs:
       - name: Determine version
         id: version
         run: |
+          git config --global --add safe.directory $GITHUB_WORKSPACE
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME}-$(git rev-parse --short HEAD)"
           else
@@ -122,6 +98,10 @@ jobs:
       # PyInstaller 构建 GUI
       - name: Build GUI with pyinstaller
         run: |
+          pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r requirements.txt
+          pip install -e .
           cd src/gui
           pyinstaller --clean k230_flash_gui.spec
 
@@ -137,11 +117,12 @@ jobs:
       - name: Package GUI (macOS)
         if: matrix.label == 'macos'
         run: |
-          REPO_ROOT=$(pwd)              # 仓库根目录
+          REPO_ROOT=$(pwd)
           UPLOAD_DIR="$REPO_ROOT/upload"
           mkdir -p "$UPLOAD_DIR"
 
           TMPDIR=$(mktemp -d)
+          mkdir -p "$TMPDIR/k230_flash_gui.app/Contents/MacOS"
           cp src/gui/dist/k230_flash_gui "$TMPDIR/k230_flash_gui.app/Contents/MacOS/"
 
           cd "$TMPDIR"
@@ -150,37 +131,51 @@ jobs:
             -ov -format UDZO \
             "$UPLOAD_DIR/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.dmg"
 
-      # Ubuntu AppImage
-      - name: Package GUI (Linux)
+      # Ubuntu AppImage using Docker + FUSE
+      - name: Package GUI (Linux with Docker & FUSE)
         if: matrix.label == 'ubuntu'
         run: |
           mkdir -p upload
-          # 创建 AppDir
-          APPDIR=$(pwd)/AppDir
-          rm -rf "$APPDIR"
-          mkdir -p "$APPDIR/usr/bin"
+          docker run --rm -it \
+            --privileged \
+            --device /dev/fuse \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            python:3.11-bullseye \
+            bash -c "
+              apt-get update && apt-get install -y build-essential wget curl git libfuse2 fuse
+              pip install --upgrade pip
+              pip install pyinstaller
+              pip install -r requirements.txt
+              pip install -e .
 
-          cd src/gui/dist
-          cp k230_flash_gui "$APPDIR/usr/bin/"
+              # 构建 GUI
+              cd src/gui
+              pyinstaller --clean k230_flash_gui.spec
 
-          mkdir -p "$APPDIR/usr/share/pixmaps"
-          cp -r ../assets "$APPDIR/usr/share/"
+              # 创建 AppDir
+              APPDIR=\$(pwd)/AppDir
+              rm -rf \$APPDIR
+              mkdir -p \$APPDIR/usr/bin
+              cp dist/k230_flash_gui \$APPDIR/usr/bin/
 
-          # Desktop 文件
-          cat > "$APPDIR/k230_flash_gui.desktop" <<EOF
-          [Desktop Entry]
-          Type=Application
-          Name=k230_flash_gui
-          Exec=/usr/bin/k230_flash_gui
-          Icon=k230_flash_gui
-          Categories=Utility;
-          EOF
+              mkdir -p \$APPDIR/usr/share/pixmaps
+              cp -r assets \$APPDIR/usr/share/
 
-          # 根目录图标
-          cp ../assets/k230_flash_gui_logo.png "$APPDIR/k230_flash_gui.png"
+              cat > \$APPDIR/k230_flash_gui.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Name=k230_flash_gui
+Exec=/usr/bin/k230_flash_gui
+Icon=k230_flash_gui
+Categories=Utility;
+EOF
 
-          # 打包 AppImage
-          ARCH=x86_64 appimagetool --no-appstream "$APPDIR" "../../../upload/k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}.AppImage"
+              cp assets/k230_flash_gui_logo.png \$APPDIR/k230_flash_gui.png
+
+              # 打包 AppImage
+              ARCH=x86_64 appimagetool --no-appstream \$APPDIR /workspace/upload/k230_flash_gui-ubuntu-${{ env.VERSION }}.AppImage
+            "
 
       # 上传 release
       - name: Upload GUI Release Asset
@@ -196,4 +191,3 @@ jobs:
         with:
           name: k230_flash_gui-${{ matrix.label }}-${{ env.VERSION }}
           path: upload/*
-
