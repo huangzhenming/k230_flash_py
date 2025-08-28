@@ -162,14 +162,12 @@ jobs:
               mkdir -p \$APPDIR/usr/share/pixmaps
               cp -r assets \$APPDIR/usr/share/
 
-              cat > \$APPDIR/k230_flash_gui.desktop <<EOF
-              [Desktop Entry]
-              Type=Application
-              Name=k230_flash_gui
-              Exec=/usr/bin/k230_flash_gui
-              Icon=k230_flash_gui
-              Categories=Utility;
-              EOF
+              echo '[Desktop Entry]'          >  \$APPDIR/k230_flash_gui.desktop
+              echo 'Type=Application'        >> \$APPDIR/k230_flash_gui.desktop
+              echo 'Name=k230_flash_gui'     >> \$APPDIR/k230_flash_gui.desktop
+              echo 'Exec=/usr/bin/k230_flash_gui' >> \$APPDIR/k230_flash_gui.desktop
+              echo 'Icon=k230_flash_gui'     >> \$APPDIR/k230_flash_gui.desktop
+              echo 'Categories=Utility;'     >> \$APPDIR/k230_flash_gui.desktop
 
               cp assets/k230_flash_gui_logo.png \$APPDIR/k230_flash_gui.png
 
