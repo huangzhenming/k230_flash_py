@@ -1,11 +1,22 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 import os
 from pathlib import Path
+import PySide6
 
 spec_dir = Path.cwd()
-datas = collect_data_files("PySide6")
 block_cipher = None
+
+# 收集 PySide6 的所有资源文件
+datas = collect_data_files("PySide6")
+
+# 修复 macOS 上 QtWebEngine 的 Helpers 目录问题
+qt_helpers = os.path.join(
+    os.path.dirname(PySide6.__file__),
+    "Qt", "lib", "QtWebEngineCore.framework", "Helpers"
+)
+if os.path.exists(qt_helpers):
+    datas += [(qt_helpers, "PySide6/Qt/lib/QtWebEngineCore.framework/Helpers")]
 
 a = Analysis(
     ["main.py"],
@@ -17,12 +28,12 @@ a = Analysis(
     datas=datas + [
         ("config.ini", "."),
         ("k230_flash_gui.pdf", "."),
-        ("libusb-1.0.dll", "."),
+        ("libusb-1.0.dll", "."),   # Windows 用，macOS 下会忽略
         ("english.qm", "."),
         ("assets/*", "assets/"),
         (str(spec_dir.parent / "k230_flash" / "loaders"), "k230_flash/loaders"),
     ],
-    hiddenimports=[
+    hiddenimports=collect_submodules("PySide6") + [
         "PySide6.QtWidgets",
         "PySide6.QtGui",
         "PySide6.QtCore",
