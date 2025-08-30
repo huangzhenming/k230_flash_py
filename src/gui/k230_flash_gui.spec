@@ -18,12 +18,13 @@ qt_helpers = os.path.join(
 if os.path.exists(qt_helpers):
     datas += [(qt_helpers, "PySide6/Qt/lib/QtWebEngineCore.framework/Helpers")]
 
+qt_platforms = os.path.join(os.path.dirname(PySide6.__file__), "Qt", "plugins", "platforms")
+if os.path.exists(qt_platforms):
+    datas += [(qt_platforms, "PySide6/Qt/plugins/platforms")]
+
 a = Analysis(
     ["main.py"],
-    pathex=[
-        str(spec_dir),
-        str(spec_dir.parent),
-    ],
+    pathex=[str(spec_dir), str(spec_dir.parent)],
     binaries=[],
     datas=datas + [
         ("config.ini", "."),
@@ -76,9 +77,7 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
+    exclude_binaries=True,  # 生成 onedir
     name="k230_flash_gui",
     debug=False,
     strip=False,
@@ -87,10 +86,12 @@ exe = EXE(
     icon="assets/k230_flash_gui_logo.ico",
 )
 
-# macOS 下生成 .app 包
-app = BUNDLE(
+coll = COLLECT(
     exe,
-    name="k230_flash_gui.app",
-    icon="assets/k230_flash_gui_logo.icns",
-    bundle_identifier="com.hzm.k230_flash_gui"
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    name="k230_flash_gui"
 )
