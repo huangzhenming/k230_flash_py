@@ -22,7 +22,7 @@ if DEBUG:
     src_path = Path(__file__).parent.parent
     sys.path.insert(0, str(src_path))
 
-from k230_flash.constants import FULL_LOG_FILE_PATH
+from utils import FULL_LOG_FILE_PATH
 
 
 def setup_gui_logging():

@@ -84,7 +84,7 @@ import k230_flash.file_utils as cmd_file_utils
 import k230_flash.kdimage as cmd_kdimg
 import k230_flash.main as cmd_main
 from k230_flash import *
-from k230_flash.constants import FULL_LOG_FILE_PATH
+from utils import FULL_LOG_FILE_PATH
 
 USE_DUMMY_FLASHING = False
 
