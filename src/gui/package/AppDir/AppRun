@@ -1,0 +1,8 @@
+#!/bin/bash
+HERE="$(dirname "$(readlink -f "${0}")")"
+
+# 设置 Qt 插件路径（PyInstaller qt plugins）
+export QT_QPA_PLATFORM_PLUGIN_PATH="$HERE/usr/bin/qt5_plugins/platforms"
+export LD_LIBRARY_PATH="$HERE/usr/bin:$LD_LIBRARY_PATH"
+
+exec "$HERE/usr/bin/k230_flash_gui" "$@"

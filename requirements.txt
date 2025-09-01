@@ -6,3 +6,4 @@ setuptools_scm
 build
 twine
 pyinstaller
+platformdirs
