@@ -107,125 +107,7 @@ jobs:
           echo "VERSION=$VERSION"
           echo "JimmyDebug 1"
 
-      # Ubuntu AppImage using Docker + FUSE
-      - name: Package GUI (Linux with Docker & FUSE)
-        if: matrix.label == 'ubuntu22'
-        run: |
-          mkdir -p upload
-          docker run --rm \
-            --privileged \
-            --device /dev/fuse \
-            -v "${{ github.workspace }}:/workspace" \
-            -w /workspace \
-            python:3.11-bullseye \
-            bash -c "
-              apt-get update && apt-get install -y build-essential wget curl git libfuse2 fuse
-              pip install --upgrade pip
-              pip install pyinstaller
-              pip install -r requirements.txt
-              pip install -e .
-
-              wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool
-              chmod +x /usr/local/bin/appimagetool
-
-              # 构建 GUI
-              cd src/gui
-              pyinstaller --clean k230_flash_gui.spec
-
-              # 创建 AppDir
-              APPDIR=\$(pwd)/AppDir
-              rm -rf \$APPDIR
-              mkdir -p \$APPDIR/usr/bin
-              cp dist/k230_flash_gui/* \$APPDIR/usr/bin/
-
-              mkdir -p \$APPDIR/usr/share/pixmaps
-              cp -r assets \$APPDIR/usr/share/
-
-              echo '[Desktop Entry]'          >  \$APPDIR/k230_flash_gui.desktop
-              echo 'Type=Application'        >> \$APPDIR/k230_flash_gui.desktop
-              echo 'Name=k230_flash_gui'     >> \$APPDIR/k230_flash_gui.desktop
-              echo 'Exec=/usr/bin/k230_flash_gui' >> \$APPDIR/k230_flash_gui.desktop
-              echo 'Icon=k230_flash_gui'     >> \$APPDIR/k230_flash_gui.desktop
-              echo 'Categories=Utility;'     >> \$APPDIR/k230_flash_gui.desktop
-
-              cp assets/k230_flash_gui_logo.png \$APPDIR/k230_flash_gui.png
-
-              # 打包 AppImage
-              ARCH=x86_64 appimagetool --no-appstream \$APPDIR /workspace/upload/k230_flash_gui-ubuntu-${{ env.VERSION }}.AppImage
-            "
-
-      - name: Package GUI (Linux with Docker & FUSE)
-        if: matrix.label == 'ubuntu23'
-        run: |
-          mkdir -p upload
-          docker run --rm \
-            --privileged \
-            --device /dev/fuse \
-            --user root \
-            -v "${{ github.workspace }}:/workspace" \
-            -w /workspace \
-            --name qt6 \
-            stateoftheartio/qt6:6.6-gcc-aqt \
-            bash -c "
-              apt-get update && apt-get install -y build-essential wget curl git libfuse2 fuse libgl-dev libvulkan-dev libssl-dev libudev-dev fuse file software-properties-common
-              
-              add-apt-repository ppa:deadsnakes/ppa -y
-              apt-get update && apt-get install -y python3.11 python3.11-dev python3.11-venv python3.11-distutils
-
-              # 设置默认 python3 指向 python3.11
-              update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
-              update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 2
-              update-alternatives --set python3 /usr/bin/python3.11
-
-              # 用 python3.11 正确安装 pip 到 /usr/local/bin
-              curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
-
-              # 验证 pip 是否可用
-              python3 -m pip --version
-
-              # 后续就用 python3 -m pip 而不是裸 pip 更安全
-              python3 -m pip install --upgrade pip
-              python3 -m pip install pyinstaller
-              python3 -m pip install -r requirements.txt
-              python3 -m pip install -e .
-              pip install --upgrade pip
-              pip install pyinstaller
-              pip install -r requirements.txt
-              pip install -e .
-
-              wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool
-              chmod +x /usr/local/bin/appimagetool
-
-              # 构建 GUI
-              cd src/gui
-              pyinstaller --clean k230_flash_gui.spec
-
-              echo "请复制文件，等待60秒"
-              sleep 60
-              echo  "开始创建 AppDir"
-
-              # 创建 AppDir
-              APPDIR=\$(pwd)/AppDir
-              rm -rf \$APPDIR
-              mkdir -p \$APPDIR/usr/bin
-              cp dist/k230_flash_gui \$APPDIR/usr/bin/
-
-              mkdir -p \$APPDIR/usr/share/pixmaps
-              cp -r assets \$APPDIR/usr/share/
-
-              echo '[Desktop Entry]'          >  \$APPDIR/k230_flash_gui.desktop
-              echo 'Type=Application'        >> \$APPDIR/k230_flash_gui.desktop
-              echo 'Name=k230_flash_gui'     >> \$APPDIR/k230_flash_gui.desktop
-              echo 'Exec=/usr/bin/k230_flash_gui' >> \$APPDIR/k230_flash_gui.desktop
-              echo 'Icon=k230_flash_gui'     >> \$APPDIR/k230_flash_gui.desktop
-              echo 'Categories=Utility;'     >> \$APPDIR/k230_flash_gui.desktop
-
-              cp assets/k230_flash_gui_logo.png \$APPDIR/k230_flash_gui.png
-
-              # 打包 AppImage
-              ARCH=x86_64 appimagetool --no-appstream \$APPDIR /workspace/upload/k230_flash_gui-ubuntu-${{ env.VERSION }}.AppImage
-            "
-
+      
       - name: Package GUI (Linux with Docker & FUSE)
         if: matrix.label == 'ubuntu'
         run: |
@@ -236,23 +118,44 @@ jobs:
             --user root \
             -v "${{ github.workspace }}:/workspace" \
             -w /workspace \
-            --name qt6 \
-            qt6-pyside6-appimage-builder:1.0 \
+            ubuntu:20.04 \
             bash -c '
-              # add-apt-repository ppa:deadsnakes/ppa -y
-              # apt-get update && apt-get install -y python3.11 python3.11-dev python3.11-venv python3.11-distutils
-              apt-get update && apt-get install -y libgdk-pixbuf2.0-0 libgdk-pixbuf2.0-bin shared-mime-info
+              export DEBIAN_FRONTEND=noninteractive
+              export TZ=Etc/UTC
+              ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime
 
-              # # 设置默认 python3 指向 python3.11
-              # update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
-              # update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 2
-              # update-alternatives --set python3 /usr/bin/python3.11
+              apt-get update
+              apt-get install -y \
+                software-properties-common \
+                wget curl git build-essential \
+                libfuse2 fuse \
+                libgl1-mesa-dev libvulkan-dev \
+                libssl-dev libudev-dev \
+                file apt-utils ca-certificates unzip \
+                gnupg lsb-release \
+                shared-mime-info \
+                libusb-1.0-0 \
+                libusb-1.0-0-dev \
+                libusb-dev \
+                libgdk-pixbuf2.0-0 libgdk-pixbuf2.0-bin libgdk-pixbuf2.0-dev
 
-              # # 用 python3.11 正确安装 pip 到 /usr/local/bin
-              # curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
 
-              # # 验证 pip 是否可用
-              # python3 -m pip --version
+              # Python 3.11
+              add-apt-repository ppa:deadsnakes/ppa -y
+              apt-get update
+              apt-get install -y python3.11 python3.11-venv python3.11-dev python3.11-distutils
+              curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
+
+              # 将 python3 指向 3.11（保留 3.8 作为备选）
+              update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+              update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 2
+              update-alternatives --set python3 /usr/bin/python3.11
+
+              # pip & 构建工具
+              python3 -m pip install --upgrade pip setuptools wheel
+
+              # PySide6 + PyInstaller
+              python3 -m pip install PySide6 pyinstaller
 
               pip install --upgrade pip
               pip install pyinstaller
@@ -266,9 +169,9 @@ jobs:
               cd src/gui
               pyinstaller --clean -y k230_flash_gui.spec
 
-              echo "请复制文件，等待30秒"
-              # sleep 30
-              echo  "开始创建 AppDir"
+              # 手动修复 gdk-pixbuf loaders.cache 文件
+              # echo "正在修复 gdk-pixbuf loaders.cache..."
+              # /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders > dist/k230_flash_gui/_internal/gdk-pixbuf/loaders.cache
 
               # 创建 AppDir
               APPDIR=$(pwd)/AppDir
@@ -277,8 +180,6 @@ jobs:
               cp -r dist/k230_flash_gui/* $APPDIR/usr/bin/
               cp -r package/AppDir/*  $APPDIR
               
-
-              echo "JimmyDebug 3"
               mkdir -p $APPDIR/usr/share/pixmaps
               cp -r assets $APPDIR/usr/share/
               
@@ -288,13 +189,8 @@ jobs:
               cp /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders $APPDIR/usr/bin/
               $APPDIR/usr/bin/gdk-pixbuf-query-loaders > $APPDIR/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache
 
-              echo "JimmyDebug 4"
               # 打包 AppImage
               ARCH=x86_64 appimagetool --no-appstream $APPDIR /workspace/k230_flash_gui-ubuntu-${{ env.VERSION }}.AppImage
-              echo "JimmyDebug 5"
-              echo "请复制文件，等待120秒"
-              sleep 60
-              echo  "开始创建 AppDir"
             '
       
       # PyInstaller 构建 GUI

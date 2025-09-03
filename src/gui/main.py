@@ -1,3 +1,6 @@
+from utils import init_platform_env
+RESOURCES = init_platform_env()
+
 import os
 import sys
 from pathlib import Path

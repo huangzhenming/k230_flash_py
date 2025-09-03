@@ -1,17 +1,19 @@
 import configparser
+import os
+import platform
 import shutil
 import sys
 from datetime import datetime
-from platformdirs import user_config_dir
 from pathlib import Path
 
 import setuptools_scm
 from loguru import logger
-
+from platformdirs import user_config_dir
 
 CONFIG_FILE = "config.ini"
 HELP_FILE = "flash-python-gui.pdf"
 APP_NAME = "k230_flash_gui"
+LOG_FILE_NAME = "k230_flash.log"
 
 
 # -------------------------
@@ -22,7 +24,7 @@ def get_app_config_dir() -> Path:
     """
     获取跨平台的用户配置目录
     - Linux: ~/.config/k230_flash_gui
-    - Windows: %APPDATA%\k230_flash_gui
+    - Windows: %APPDATA%\\k230_flash_gui
     - macOS: ~/Library/Application Support/k230_flash_gui
     """
     config_dir = Path(user_config_dir(APP_NAME))
@@ -37,14 +39,224 @@ def get_exe_dir() -> Path:
     return Path.cwd() / "src" / "gui"
 
 
+def get_base_path() -> Path:
+    """获取资源根路径（PyInstaller 打包 or 源码运行）"""
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS)
+    return Path.cwd()
+
+
 def get_resource_path(filename: str) -> Path:
     """获取只读资源文件路径"""
-    if getattr(sys, "frozen", False):
-        return Path(sys._MEIPASS) / filename
-    return Path.cwd() / filename
+    return get_base_path() / filename
 
-LOG_FILE_NAME = "k230_flash.log"
+
 FULL_LOG_FILE_PATH = get_app_config_dir() / LOG_FILE_NAME
+
+
+# -------------------------
+# 平台环境初始化
+# -------------------------
+
+def init_platform_env():
+    """
+    初始化跨平台运行环境：
+    - Linux: 设置 gdk-pixbuf 环境变量并确保 loaders.cache 存在
+    - 统一资源路径
+    """
+    base_path = get_base_path()
+
+    if platform.system().lower() == "linux":
+        gdk_base = base_path / "gdk-pixbuf"
+        loaders_dir = gdk_base / "loaders"
+        cache_file = gdk_base / "loaders.cache"
+        
+        # 设置环境变量
+        os.environ["GDK_PIXBUF_MODULE_FILE"] = str(cache_file)
+        os.environ["GDK_PIXBUF_MODULEDIR"] = str(loaders_dir)
+        logger.debug(f"已设置 GDK_PIXBUF_MODULE_FILE={os.environ['GDK_PIXBUF_MODULE_FILE']}")
+        logger.debug(f"已设置 GDK_PIXBUF_MODULEDIR={os.environ['GDK_PIXBUF_MODULEDIR']}")
+        
+        # 检查并生成 loaders.cache 文件
+        if loaders_dir.exists() and (not cache_file.exists() or cache_file.stat().st_size == 0):
+            try:
+                # 尝试生成 loaders.cache 文件
+                import subprocess
+                logger.debug("loaders.cache文件不存在或为空，尝试生成...")
+                
+                # 使用 gdk-pixbuf-query-loaders 生成缓存文件
+                query_cmd = None
+                for cmd in [
+                    "gdk-pixbuf-query-loaders",
+                    "/usr/bin/gdk-pixbuf-query-loaders",
+                    "/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders"
+                ]:
+                    if shutil.which(cmd) or os.path.exists(cmd):
+                        query_cmd = cmd
+                        break
+                
+                if query_cmd:
+                    # 生成 loaders.cache 内容
+                    result = subprocess.run(
+                        [query_cmd] + list(loaders_dir.glob("*.so")),
+                        capture_output=True,
+                        text=True,
+                        cwd=str(loaders_dir)
+                    )
+                    
+                    if result.returncode == 0 and result.stdout:
+                        # 将路径替换为相对路径以确保可移植性
+                        cache_content = result.stdout
+                        cache_content = cache_content.replace(str(loaders_dir), str(loaders_dir))
+                        
+                        with open(cache_file, 'w') as f:
+                            f.write(cache_content)
+                        logger.debug(f"成功生成 loaders.cache 文件: {cache_file}")
+                    else:
+                        logger.warning(f"生成 loaders.cache 失败: {result.stderr}")
+                        # 生成一个最小的 loaders.cache 文件
+                        _generate_minimal_loaders_cache(cache_file, loaders_dir)
+                else:
+                    logger.warning("未找到 gdk-pixbuf-query-loaders 命令，生成最小缓存文件")
+                    _generate_minimal_loaders_cache(cache_file, loaders_dir)
+                    
+            except Exception as e:
+                logger.warning(f"生成 loaders.cache 失败: {e}")
+                _generate_minimal_loaders_cache(cache_file, loaders_dir)
+
+    return {
+        "base": base_path,
+        "assets": base_path / "assets",
+        "translations": base_path / "translations",
+    }
+
+
+def _generate_minimal_loaders_cache(cache_file: Path, loaders_dir: Path):
+    """
+    生成一个最小的 loaders.cache 文件，包含基本的图像格式支持
+    """
+    try:
+        cache_content = '# GDK Pixbuf Image Loader Modules file\n'
+        cache_content += '# Automatically generated file, do not edit\n'
+        cache_content += '# Created by K230 Flash GUI\n\n'
+        
+        # 添加常用的图像格式加载器
+        loaders = {
+            'libpixbufloader-png.so': ['png'],
+            'libpixbufloader-jpeg.so': ['jpeg', 'jpg'],
+            'libpixbufloader-gif.so': ['gif'],
+            'libpixbufloader-bmp.so': ['bmp'],
+            'libpixbufloader-ico.so': ['ico'],
+            'libpixbufloader-svg.so': ['svg'],
+            'libpixbufloader-tiff.so': ['tiff', 'tif'],
+            'libpixbufloader-xpm.so': ['xpm'],
+        }
+        
+        for loader_file, extensions in loaders.items():
+            loader_path = loaders_dir / loader_file
+            if loader_path.exists():
+                cache_content += f'"/{loader_path}"\n'
+                cache_content += f'"image/{extensions[0]}" 5 "gdk-pixbuf" "The {extensions[0].upper()} image format" "LGPL"\n'
+                for ext in extensions:
+                    cache_content += f'"{ext}" "" 100\n'
+                cache_content += '\n'
+        
+        with open(cache_file, 'w') as f:
+            f.write(cache_content)
+        logger.debug(f"已生成最小 loaders.cache 文件: {cache_file}")
+        
+    except Exception as e:
+        logger.error(f"生成最小 loaders.cache 文件失败: {e}")
+        if loaders_dir.exists() and (not cache_file.exists() or cache_file.stat().st_size == 0):
+            try:
+                # 尝试生成 loaders.cache 文件
+                import subprocess
+                logger.debug("loaders.cache文件不存在或为空，尝试生成...")
+                
+                # 使用 gdk-pixbuf-query-loaders 生成缓存文件
+                query_cmd = None
+                for cmd in [
+                    "gdk-pixbuf-query-loaders",
+                    "/usr/bin/gdk-pixbuf-query-loaders",
+                    "/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders"
+                ]:
+                    if shutil.which(cmd) or os.path.exists(cmd):
+                        query_cmd = cmd
+                        break
+                
+                if query_cmd:
+                    # 生成 loaders.cache 内容
+                    result = subprocess.run(
+                        [query_cmd] + list(loaders_dir.glob("*.so")),
+                        capture_output=True,
+                        text=True,
+                        cwd=str(loaders_dir)
+                    )
+                    
+                    if result.returncode == 0 and result.stdout:
+                        # 将路径替换为相对路径以确保可移植性
+                        cache_content = result.stdout
+                        cache_content = cache_content.replace(str(loaders_dir), str(loaders_dir))
+                        
+                        with open(cache_file, 'w') as f:
+                            f.write(cache_content)
+                        logger.debug(f"成功生成 loaders.cache 文件: {cache_file}")
+                    else:
+                        logger.warning(f"生成 loaders.cache 失败: {result.stderr}")
+                        # 生成一个最小的 loaders.cache 文件
+                        _generate_minimal_loaders_cache(cache_file, loaders_dir)
+                else:
+                    logger.warning("未找到 gdk-pixbuf-query-loaders 命令，生成最小缓存文件")
+                    _generate_minimal_loaders_cache(cache_file, loaders_dir)
+                    
+            except Exception as e:
+                logger.warning(f"生成 loaders.cache 失败: {e}")
+                _generate_minimal_loaders_cache(cache_file, loaders_dir)
+
+    return {
+        "base": base_path,
+        "assets": base_path / "assets",
+        "translations": base_path / "translations",
+    }
+
+
+def _generate_minimal_loaders_cache(cache_file: Path, loaders_dir: Path):
+    """
+    生成一个最小的 loaders.cache 文件，包含基本的图像格式支持
+    """
+    try:
+        cache_content = '# GDK Pixbuf Image Loader Modules file\n'
+        cache_content += '# Automatically generated file, do not edit\n'
+        cache_content += '# Created by K230 Flash GUI\n\n'
+        
+        # 添加常用的图像格式加载器
+        loaders = {
+            'libpixbufloader-png.so': ['png'],
+            'libpixbufloader-jpeg.so': ['jpeg', 'jpg'],
+            'libpixbufloader-gif.so': ['gif'],
+            'libpixbufloader-bmp.so': ['bmp'],
+            'libpixbufloader-ico.so': ['ico'],
+            'libpixbufloader-svg.so': ['svg'],
+            'libpixbufloader-tiff.so': ['tiff', 'tif'],
+            'libpixbufloader-xpm.so': ['xpm'],
+        }
+        
+        for loader_file, extensions in loaders.items():
+            loader_path = loaders_dir / loader_file
+            if loader_path.exists():
+                cache_content += f'"/{loader_path}"\n'
+                cache_content += f'"image/{extensions[0]}" 5 "gdk-pixbuf" "The {extensions[0].upper()} image format" "LGPL"\n'
+                for ext in extensions:
+                    cache_content += f'"{ext}" "" 100\n'
+                cache_content += '\n'
+        
+        with open(cache_file, 'w') as f:
+            f.write(cache_content)
+        logger.debug(f"已生成最小 loaders.cache 文件: {cache_file}")
+        
+    except Exception as e:
+        logger.error(f"生成最小 loaders.cache 文件失败: {e}")
+
 
 # -------------------------
 # 配置文件管理
@@ -86,7 +298,7 @@ def update_log_level(log_level):
                        format="{time:HH:mm:ss.SSS} | {level:<8} | {message}")
 
         if FULL_LOG_FILE_PATH:
-            log_path = get_app_config_dir() / "k230_flash.log"
+            log_path = get_app_config_dir() / LOG_FILE_NAME
             logger.add(
                 log_path,
                 format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name} | {message}",
