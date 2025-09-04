@@ -45,33 +45,33 @@ jobs:
           mkdir -p upload
           zip -j upload/k230-flash-${{ env.VERSION }}.zip dist/*
 
-      # - name: Upload Python Release Asset
-      #   if: startsWith(github.ref, 'refs/tags/')
-      #   uses: softprops/action-gh-release@v2
-      #   with:
-      #     files: upload/k230-flash-${{ env.VERSION }}.zip
-      #     prerelease: true
+      - name: Upload Python Release Asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: upload/k230-flash-${{ env.VERSION }}.zip
+          prerelease: true
 
-      # - name: Upload Python Nightly Artifact
-      #   if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: k230-flash-${{ env.VERSION }}
-      #     path: upload/k230-flash-${{ env.VERSION }}.zip
+      - name: Upload Python Nightly Artifact
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: k230-flash-${{ env.VERSION }}
+          path: upload/k230-flash-${{ env.VERSION }}.zip
 
   gui-release:
     strategy:
       matrix:
         include:
-        # - os: ubuntu-22.04
-        #   label: ubuntu
-        #   runner: ubuntu-22.04
-        # - os: windows-2022
-        #   label: windows
-        #   runner: windows-2022
-        - os: macos-13
-          label: macos
-          runner: macos-13
+        - os: ubuntu-22.04
+          label: ubuntu
+          runner: ubuntu-22.04
+        - os: windows-2022
+          label: windows
+          runner: windows-2022
+        # - os: macos-13
+        #   label: macos
+        #   runner: macos-13
     runs-on: ${{ matrix.runner }}
     defaults:
       run:

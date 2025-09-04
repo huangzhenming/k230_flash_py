@@ -67,49 +67,20 @@ elif system == "darwin":
     # macOS特定: 处理Qt框架符号链接冲突
     # 过滤掉可能导致冲突的Qt框架文件
     import shutil
-    import glob as glob_module
-    
     def clean_existing_symlinks():
         """清理可能冲突的符号链接"""
         try:
-            # 清理目标目录中的框架文件
             qt_frameworks_dir = Path("dist/k230_flash_gui/_internal/PySide6/Qt/lib")
             if qt_frameworks_dir.exists():
                 for framework in qt_frameworks_dir.glob("*.framework"):
-                    # 清理Resources符号链接
                     resources_link = framework / "Resources"
                     if resources_link.exists() and resources_link.is_symlink():
                         resources_link.unlink()
                         print(f"Removed conflicting symlink: {resources_link}")
-                    
-                    # 清理Versions/Current符号链接
-                    versions_current = framework / "Versions" / "Current"
-                    if versions_current.exists() and versions_current.is_symlink():
-                        versions_current.unlink()
-                        print(f"Removed conflicting symlink: {versions_current}")
-                        
-            # 清理临时构建目录
-            temp_dirs = [
-                Path("build"),
-                Path("dist"),
-                Path("/tmp") / "_MEI*"
-            ]
-            
-            for temp_dir in temp_dirs:
-                if "*" in str(temp_dir):
-                    for path in glob_module.glob(str(temp_dir)):
-                        if Path(path).exists():
-                            shutil.rmtree(path)
-                            print(f"Cleaned temp directory: {path}")
-                elif temp_dir.exists():
-                    shutil.rmtree(temp_dir)
-                    print(f"Cleaned temp directory: {temp_dir}")
-                    
         except Exception as e:
             print(f"Warning: Failed to clean symlinks: {e}")
     
-    # 执行清理
-    clean_existing_symlinks()
+    # 这个函数将在构建时被调用
 
 # Linux特定配置
 elif system == "linux":
@@ -195,43 +166,9 @@ a = Analysis(
         "PySide6.Qt3DInput",
         "PySide6.Qt3DLogic",
         "PySide6.Qt3DRender",
-        "PySide6.Qt3DQuick",
-        "PySide6.Qt3DQuickAnimation",
-        "PySide6.Qt3DQuickExtras",
-        "PySide6.Qt3DQuickInput",
-        "PySide6.Qt3DQuickRender",
-        "PySide6.Qt3DQuickScene2D",
         "PySide6.QtWebEngine",
         "PySide6.QtWebEngineCore",
         "PySide6.QtWebEngineWidgets",
-        "PySide6.QtWebEngineQuick",
-        "PySide6.QtQuick3D",
-        "PySide6.QtQuick3DAssetImport",
-        "PySide6.QtQuick3DRuntimeRender",
-        "PySide6.QtQuick3DUtils",
-        "PySide6.QtDataVisualization",
-        "PySide6.QtCharts",
-        "PySide6.QtVirtualKeyboard",
-        "PySide6.QtLocation",
-        "PySide6.QtPositioning",
-        "PySide6.QtSensors",
-        "PySide6.QtMultimedia",
-        "PySide6.QtMultimediaWidgets",
-        "PySide6.QtQuickControls2",
-        "PySide6.QtQuickDialogs2",
-        "PySide6.QtQuickLayouts",
-        "PySide6.QtQuickTemplates2",
-        "PySide6.QtQuickTest",
-        "PySide6.QtRemoteObjects",
-        "PySide6.QtScxml",
-        "PySide6.QtStateMachine",
-        "PySide6.QtWebSockets",
-        "PySide6.QtSql",
-        "PySide6.QtSvg",
-        "PySide6.QtSvgWidgets",
-        "PySide6.QtOpenGL",
-        "PySide6.QtOpenGLWidgets",
-        "PySide6.QtPrintSupport",
     ] if system == "darwin" else [],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
@@ -253,28 +190,6 @@ exe = EXE(
     # Windows特定设置
     version="version_info.txt" if system == "windows" and os.path.exists("version_info.txt") else None,
 )
-
-# macOS特定预处理：在COLLECT之前清理冲突
-if system == "darwin":
-    # 执行预清理
-    clean_existing_symlinks()
-    
-    # 过滤掉有问题的binaries
-    filtered_binaries = []
-    for binary in a.binaries:
-        binary_path = binary[0] if isinstance(binary, tuple) else str(binary)
-        # 跳过可能导致符号链接冲突的文件
-        if any(problematic in binary_path for problematic in [
-            "Qt3DAnimation", "Qt3DCore", "Qt3DExtras", "Qt3DInput", 
-            "Qt3DLogic", "Qt3DRender", "Qt3DQuick", "QtWebEngine",
-            "QtQuick3D", "QtDataVisualization", "QtCharts"
-        ]):
-            print(f"Skipping potentially problematic binary: {binary_path}")
-            continue
-        filtered_binaries.append(binary)
-    
-    # 更新binaries列表
-    a.binaries = filtered_binaries
 
 coll = COLLECT(
     exe,
