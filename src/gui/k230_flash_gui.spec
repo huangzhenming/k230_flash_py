@@ -1,29 +1,28 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import collect_submodules
 import os
 import platform
-import glob
 from pathlib import Path
-import PySide6
 
 spec_dir = Path.cwd()
 block_cipher = None
 system = platform.system().lower()
 
-# 收集 PySide6 的所有资源文件
-datas = collect_data_files("PySide6")
+# 应用资源文件配置
+extra_datas = [("config.ini", ".")]
+if os.path.exists("version.txt"):
+    extra_datas.append(("version.txt", "."))
+if os.path.exists("k230_flash_gui.pdf"):
+    extra_datas.append(("k230_flash_gui.pdf", "."))
+if os.path.exists("english.qm"):
+    extra_datas.append(("english.qm", "."))
+if os.path.exists("assets"):
+    extra_datas.append(("assets/*", "assets/"))
 
-# 修复 macOS 上 QtWebEngine 的 Helpers 目录问题
-qt_helpers = os.path.join(
-    os.path.dirname(PySide6.__file__),
-    "Qt", "lib", "QtWebEngineCore.framework", "Helpers"
-)
-if os.path.exists(qt_helpers):
-    datas += [(qt_helpers, "PySide6/Qt/lib/QtWebEngineCore.framework/Helpers")]
-
-qt_platforms = os.path.join(os.path.dirname(PySide6.__file__), "Qt", "plugins", "platforms")
-if os.path.exists(qt_platforms):
-    datas += [(qt_platforms, "PySide6/Qt/plugins/platforms")]
+# K230 Flash loaders
+k230_loaders_path = spec_dir.parent / "k230_flash" / "loaders"
+if k230_loaders_path.exists():
+    extra_datas.append((str(k230_loaders_path), "k230_flash/loaders"))
 
 binaries = []
 
@@ -32,17 +31,8 @@ if system == "windows":
     # 添加libusb-1.0.dll
     libusb_dll = os.path.join(spec_dir, "libusb-1.0.dll")
     if os.path.exists(libusb_dll):
-        binaries += [(libusb_dll, ".")]
+        binaries.append((libusb_dll, "."))
         print(f"Adding Windows USB library: {libusb_dll}")
-    
-    # Windows系统库
-    try:
-        import usb.backend.libusb1
-        backend_path = os.path.dirname(usb.backend.libusb1.__file__)
-        for dll in glob.glob(os.path.join(backend_path, "*.dll")):
-            binaries += [(dll, "usb/backend")]
-    except:
-        pass
 
 # macOS特定配置
 elif system == "darwin":
@@ -55,122 +45,58 @@ elif system == "darwin":
             libusb_path = result.stdout.strip()
             libusb_lib = os.path.join(libusb_path, "lib", "libusb-1.0.dylib")
             if os.path.exists(libusb_lib):
-                binaries += [(libusb_lib, ".")]
+                binaries.append((libusb_lib, "."))
                 print(f"Adding macOS USB library: {libusb_lib}")
     except:
         # 备用路径
         for path in ["/usr/local/lib/libusb-1.0.dylib", "/opt/homebrew/lib/libusb-1.0.dylib"]:
             if os.path.exists(path):
-                binaries += [(path, ".")]
+                binaries.append((path, "."))
                 break
-    
-    # macOS特定: 处理Qt框架符号链接冲突
-    # 过滤掉可能导致冲突的Qt框架文件
-    import shutil
-    def clean_existing_symlinks():
-        """清理可能冲突的符号链接"""
-        try:
-            qt_frameworks_dir = Path("dist/k230_flash_gui/_internal/PySide6/Qt/lib")
-            if qt_frameworks_dir.exists():
-                for framework in qt_frameworks_dir.glob("*.framework"):
-                    resources_link = framework / "Resources"
-                    if resources_link.exists() and resources_link.is_symlink():
-                        resources_link.unlink()
-                        print(f"Removed conflicting symlink: {resources_link}")
-        except Exception as e:
-            print(f"Warning: Failed to clean symlinks: {e}")
-    
-    # 这个函数将在构建时被调用
 
-# Linux特定配置
-elif system == "linux":
-    # 尝试多个可能的gdk-pixbuf路径（适配不同Linux发行版）
-    gdk_pixbuf_paths = [
-        "/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0",
-        "/usr/lib64/gdk-pixbuf-2.0/2.10.0",
-        "/usr/lib/gdk-pixbuf-2.0/2.10.0"
-    ]
-    
-    gdk_pixbuf_path = None
-    for path in gdk_pixbuf_paths:
-        if os.path.exists(path):
-            gdk_pixbuf_path = path
-            break
-    
-    if gdk_pixbuf_path:
-        # 复制所有gdk-pixbuf加载器
-        binaries += [
-            (f, "gdk-pixbuf/loaders")
-            for f in glob.glob(os.path.join(gdk_pixbuf_path, "loaders", "*.so"))
-        ]
-        
-        # 如果存在loaders.cache，复制它；否则将在运行时生成
-        cache_file = os.path.join(gdk_pixbuf_path, "loaders.cache")
-        if os.path.exists(cache_file):
-            datas += [(cache_file, "gdk-pixbuf/")]
-            
-        print(f"Found gdk-pixbuf path: {gdk_pixbuf_path}")
-        print(f"Number of loaders: {len([f for f in glob.glob(os.path.join(gdk_pixbuf_path, 'loaders', '*.so'))])}")
-    else:
-        print("Warning: gdk-pixbuf path not found, may cause image loading issues")
+# Linux配置 - 移除gdk-pixbuf相关配置，因为PySide6不需要GTK相关组件
 
 
 a = Analysis(
     ["main.py"],
     pathex=[str(spec_dir), str(spec_dir.parent)],
     binaries=binaries,
-    datas=datas + [
-        ("config.ini", "."),
-        ("version.txt", ".") if os.path.exists("version.txt") else None,
-        ("k230_flash_gui.pdf", "."),
-        ("english.qm", "."),
-        ("assets/*", "assets/"),
-        (str(spec_dir.parent / "k230_flash" / "loaders"), "k230_flash/loaders"),
-    ] + ([("libusb-1.0.dll", ".")] if system == "windows" and os.path.exists("libusb-1.0.dll") else []),
-    hiddenimports=collect_submodules("PySide6") + [
-        "PySide6.QtWidgets",
-        "PySide6.QtGui",
-        "PySide6.QtCore",
-        "PySide6.QtNetwork",
-        "loguru",
+    datas=extra_datas,
+    hiddenimports=[
+        # K230 Flash 核心模块
+        *collect_submodules("k230_flash"),
+        # GUI 模块
+        "advanced_settings",
+        "batch_flash",
+        "common_widget_styles",  # 修正拼写错误
+        "log_file_monitor",
+        "single_flash",
+        "utils",
+        "resources_rc",
+        # USB 相关
         "usb",
         "usb.core",
         "usb.util",
         "usb.backend",
         "usb.backend.libusb1",
-        "k230_flash",
-        "k230_flash.api",
-        "k230_flash.burners",
-        "k230_flash.usb_utils",
-        "k230_flash.kdimage",
-        "k230_flash.file_utils",
-        "k230_flash.progress",
-        "k230_flash.constants",
-        "k230_flash.arg_parser",
-        "k230_flash.kdimg_utils",
-        "k230_flash.main",
-        "advanced_settings",
-        "batch_flash",
-        "common_widget_sytles",
-        "log_file_monitor",
-        "single_flash",
-        "utils",
-        "resources_rc",
+        # 日志
+        "loguru",
     ],
     hookspath=[],
     runtime_hooks=[],
     excludes=[
-        # macOS: 排除可能导致符号链接冲突的Qt模块
+        # 不使用WebEngine，排除相关模块
+        "PySide6.QtWebEngine",
+        "PySide6.QtWebEngineCore",
+        "PySide6.QtWebEngineWidgets",
+        # 3D相关模块（如果不使用）
         "PySide6.Qt3DAnimation",
         "PySide6.Qt3DCore", 
         "PySide6.Qt3DExtras",
         "PySide6.Qt3DInput",
         "PySide6.Qt3DLogic",
         "PySide6.Qt3DRender",
-        "PySide6.QtWebEngine",
-        "PySide6.QtWebEngineCore",
-        "PySide6.QtWebEngineWidgets",
-    ] if system == "darwin" else [],
+    ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -185,7 +111,7 @@ exe = EXE(
     name="k230_flash_gui",
     debug=False,
     strip=False,
-    upx=True,
+    upx=False,  # 禁用UPX压缩，避免macOS签名问题
     console=False,
     icon="assets/k230_flash_gui_logo.ico" if system != "darwin" else "assets/k230_flash_gui_logo.icns",
     # Windows特定设置
@@ -198,7 +124,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     name="k230_flash_gui"
 )
 
