@@ -107,7 +107,7 @@ a = Analysis(
         ("english.qm", "."),
         ("assets/*", "assets/"),
         (str(spec_dir.parent / "k230_flash" / "loaders"), "k230_flash/loaders"),
-    ] + (["libusb-1.0.dll", "."] if system == "windows" and os.path.exists("libusb-1.0.dll") else []),
+    ] + ([("libusb-1.0.dll", ".")] if system == "windows" and os.path.exists("libusb-1.0.dll") else []),
     hiddenimports=collect_submodules("PySide6") + [
         "PySide6.QtWidgets",
         "PySide6.QtGui",
