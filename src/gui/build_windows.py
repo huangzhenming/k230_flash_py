@@ -13,82 +13,82 @@ from pathlib import Path
 
 
 def setup_windows_build():
-    """配置Windows构建环境"""
-    print("=== 配置Windows构建环境 ===")
+    """Setup Windows build environment"""
+    print("=== Setting up Windows build environment ===")
     
-    # 确保当前在gui目录
+    # Ensure we're in the gui directory
     gui_dir = Path(__file__).parent
     os.chdir(gui_dir)
     
-    # 检查必要文件
+    # Check required files
     required_files = [
         "k230_flash_gui.spec",
         "main.py",
         "config.ini",
-        "libusb-1.0.dll"  # Windows USB驱动
+        "libusb-1.0.dll"  # Windows USB driver
     ]
     
     for file in required_files:
         if not Path(file).exists():
-            print(f"错误: 缺少必要文件 {file}")
+            print(f"Error: Missing required file {file}")
             return False
     
-    # 检查assets目录
+    # Check assets directory
     if not Path("assets").exists():
-        print("错误: 缺少assets目录")
+        print("Error: Missing assets directory")
         return False
     
-    print("Windows构建环境检查完成")
+    print("Windows build environment check completed")
     return True
 
 def build_executable():
-    """使用PyInstaller构建exe文件"""
-    print("=== 开始构建Windows可执行文件 ===")
+    """Build exe file using PyInstaller"""
+    print("=== Building Windows executable ===")
     
     try:
-        # 清理之前的构建
+        # Clean previous builds
         if Path("build").exists():
             shutil.rmtree("build")
         if Path("dist").exists():
             shutil.rmtree("dist")
         
-        # 运行PyInstaller
+        # Run PyInstaller
         cmd = [
             sys.executable, "-m", "PyInstaller",
             "--clean", "-y",
             "k230_flash_gui.spec"
         ]
         
-        print(f"执行命令: {' '.join(cmd)}")
+        print(f"Executing command: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode != 0:
-            print(f"PyInstaller构建失败:")
+            print(f"PyInstaller build failed:")
             print(f"STDOUT: {result.stdout}")
             print(f"STDERR: {result.stderr}")
             return False
         
-        print("PyInstaller构建成功")
+        print("PyInstaller build successful")
         return True
         
     except Exception as e:
-        print(f"构建过程中发生错误: {e}")
+        print(f"Error occurred during build: {e}")
         return False
 
 def create_installer():
-    """创建Windows安装包"""
-    print("=== 创建Windows安装包 ===")
+    """Create Windows installer package"""
+    print("=== Creating Windows installer package ===")
     
     dist_dir = Path("dist/k230_flash_gui")
     if not dist_dir.exists():
-        print("错误: 找不到构建输出目录")
+        print("Error: Build output directory not found")
         return False
     
-    # 创建zip包
+    # Create zip package
     output_dir = Path("../../upload")
     output_dir.mkdir(exist_ok=True)
     
-    # 获取版本信息 - 优先使用环境变量，fallback到git
+    # Get version information - prefer environment variable, fallback to git
     version = os.environ.get('VERSION')
     if not version:
         try:
@@ -101,9 +101,9 @@ def create_installer():
         except:
             version = "dev"
     
-    print(f"使用版本: {version}")
+    print(f"Using version: {version}")
     
-    # 创建zip文件
+    # Create zip file
     zip_name = f"k230_flash_gui-windows-{version}"
     shutil.make_archive(
         str(output_dir / zip_name),
@@ -112,12 +112,12 @@ def create_installer():
         dist_dir.name
     )
     
-    print(f"Windows安装包已创建: {zip_name}.zip")
+    print(f"Windows installer package created: {zip_name}.zip")
     return True
 
 def main():
-    """主函数"""
-    print("K230 Flash GUI - Windows构建脚本")
+    """Main function"""
+    print("K230 Flash GUI - Windows Build Script")
     print("=" * 50)
     
     if not setup_windows_build():
@@ -129,9 +129,9 @@ def main():
     if not create_installer():
         sys.exit(1)
     
-    print("\n=== Windows构建完成 ===")
-    print("输出目录: dist/k230_flash_gui/")
-    print("安装包: ../../upload/")
+    print("\n=== Windows build completed ===")
+    print("Output directory: dist/k230_flash_gui/")
+    print("Installer package: ../../upload/")
 
 if __name__ == "__main__":
     main()

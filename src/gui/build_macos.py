@@ -14,14 +14,14 @@ from pathlib import Path
 
 
 def setup_macos_build():
-    """配置macOS构建环境"""
-    print("=== 配置macOS构建环境 ===")
+    """Setup macOS build environment"""
+    print("=== Setting up macOS build environment ===")
     
-    # 确保当前在gui目录
+    # Ensure we're in the gui directory
     gui_dir = Path(__file__).parent
     os.chdir(gui_dir)
     
-    # 检查必要文件
+    # Check required files
     required_files = [
         "k230_flash_gui.spec",
         "main.py",
@@ -30,73 +30,73 @@ def setup_macos_build():
     
     for file in required_files:
         if not Path(file).exists():
-            print(f"错误: 缺少必要文件 {file}")
+            print(f"Error: Missing required file {file}")
             return False
     
-    # 检查assets目录
+    # Check assets directory
     if not Path("assets").exists():
-        print("错误: 缺少assets目录")
+        print("Error: Missing assets directory")
         return False
     
-    # 检查是否在macOS上
+    # Check if running on macOS
     if sys.platform != "darwin":
-        print("警告: 当前不在macOS平台，某些功能可能不可用")
+        print("Warning: Not running on macOS platform, some features may not be available")
     
-    print("macOS构建环境检查完成")
+    print("macOS build environment check completed")
     return True
 
 def build_app():
-    """使用PyInstaller构建.app文件"""
-    print("=== 开始构建macOS应用程序 ===")
+    """Build .app file using PyInstaller"""
+    print("=== Building macOS application ===")
     
     try:
-        # 清理之前的构建
+        # Clean previous builds
         if Path("build").exists():
             shutil.rmtree("build")
         if Path("dist").exists():
             shutil.rmtree("dist")
         
-        # 运行PyInstaller
+        # Run PyInstaller
         cmd = [
             sys.executable, "-m", "PyInstaller",
             "--clean", "-y",
             "k230_flash_gui.spec"
         ]
         
-        print(f"执行命令: {' '.join(cmd)}")
+        print(f"Executing command: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode != 0:
-            print(f"PyInstaller构建失败:")
+            print(f"PyInstaller build failed:")
             print(f"STDOUT: {result.stdout}")
             print(f"STDERR: {result.stderr}")
             return False
         
-        print("PyInstaller构建成功")
+        print("PyInstaller build successful")
         return True
         
     except Exception as e:
-        print(f"构建过程中发生错误: {e}")
+        print(f"Error occurred during build: {e}")
         return False
 
 def create_app_bundle():
-    """创建标准的macOS .app bundle"""
-    print("=== 创建macOS应用程序Bundle ===")
+    """Create standard macOS .app bundle"""
+    print("=== Creating macOS application bundle ===")
     
     dist_dir = Path("dist/k230_flash_gui")
     app_dir = Path("dist/K230FlashGUI.app")
     
     if not dist_dir.exists():
-        print("错误: 找不到PyInstaller输出目录")
+        print("Error: PyInstaller output directory not found")
         return False
     
-    # 如果已经是.app bundle，跳过
+    # If .app bundle already exists, skip
     if app_dir.exists():
-        print("应用程序Bundle已存在")
+        print("Application bundle already exists")
         return True
     
     try:
-        # 创建.app目录结构
+        # Create .app directory structure
         app_dir.mkdir(exist_ok=True)
         contents_dir = app_dir / "Contents"
         contents_dir.mkdir(exist_ok=True)
@@ -105,27 +105,27 @@ def create_app_bundle():
         resources_dir = contents_dir / "Resources"
         resources_dir.mkdir(exist_ok=True)
         
-        # 复制可执行文件和资源
+        # Copy executable files and resources
         if (dist_dir / "k230_flash_gui").exists():
             shutil.copy2(dist_dir / "k230_flash_gui", macos_dir / "K230FlashGUI")
         else:
-            # 复制整个目录内容
+            # Copy entire directory contents
             for item in dist_dir.iterdir():
                 if item.is_file():
                     shutil.copy2(item, macos_dir)
                 else:
                     shutil.copytree(item, macos_dir / item.name, dirs_exist_ok=True)
         
-        # 复制图标文件
+        # Copy icon file
         icon_src = Path("assets/k230_flash_gui_logo.ico")
         if icon_src.exists():
             icon_dst = resources_dir / "icon.ico"
             shutil.copy2(icon_src, icon_dst)
         
-        # 获取版本信息用于Info.plist
+        # Get version info for Info.plist
         version = os.environ.get('VERSION', '1.0.0')
         
-        # 创建Info.plist文件
+        # Create Info.plist file
         info_plist = {
             'CFBundleName': 'K230 Flash GUI',
             'CFBundleDisplayName': 'K230 Flash GUI',
@@ -146,23 +146,23 @@ def create_app_bundle():
         with open(contents_dir / "Info.plist", 'wb') as f:
             plistlib.dump(info_plist, f)
         
-        print("macOS应用程序Bundle创建完成")
+        print("macOS application bundle created successfully")
         return True
         
     except Exception as e:
-        print(f"创建App Bundle时发生错误: {e}")
+        print(f"Error creating App Bundle: {e}")
         return False
 
 def create_dmg():
-    """创建DMG安装包"""
-    print("=== 创建DMG安装包 ===")
+    """Create DMG installer package"""
+    print("=== Creating DMG installer package ===")
     
     app_path = Path("dist/K230FlashGUI.app")
     if not app_path.exists():
-        print("错误: 找不到应用程序Bundle")
+        print("Error: Application bundle not found")
         return False
     
-    # 获取版本信息 - 优先使用环境变量，fallback到git
+    # Get version information - prefer environment variable, fallback to git
     version = os.environ.get('VERSION')
     if not version:
         try:
@@ -174,35 +174,35 @@ def create_dmg():
         except:
             version = "dev"
     
-    print(f"使用版本: {version}")
+    print(f"Using version: {version}")
     
-    # 创建输出目录
+    # Create output directory
     output_dir = Path("../../upload")
     output_dir.mkdir(exist_ok=True)
     
     dmg_name = f"k230_flash_gui-macos-{version}.dmg"
     dmg_path = output_dir / dmg_name
     
-    # 删除已存在的dmg文件
+    # Delete existing dmg file
     if dmg_path.exists():
         dmg_path.unlink()
     
     try:
-        # 创建临时DMG目录
+        # Create temporary DMG directory
         temp_dmg_dir = Path("temp_dmg")
         if temp_dmg_dir.exists():
             shutil.rmtree(temp_dmg_dir)
         temp_dmg_dir.mkdir()
         
-        # 复制应用程序到临时目录
+        # Copy application to temporary directory
         shutil.copytree(app_path, temp_dmg_dir / "K230FlashGUI.app")
         
-        # 创建Applications符号链接
+        # Create Applications symbolic link
         applications_link = temp_dmg_dir / "Applications"
         if not applications_link.exists():
             os.symlink("/Applications", applications_link)
         
-        # 使用hdiutil创建DMG
+        # Create DMG using hdiutil
         cmd = [
             "hdiutil", "create",
             "-volname", "K230 Flash GUI",
@@ -211,28 +211,28 @@ def create_dmg():
             str(dmg_path)
         ]
         
-        print(f"执行命令: {' '.join(cmd)}")
+        print(f"Executing command: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode != 0:
-            print(f"创建DMG失败:")
+            print(f"DMG creation failed:")
             print(f"STDOUT: {result.stdout}")
             print(f"STDERR: {result.stderr}")
             return False
         
-        # 清理临时目录
+        # Clean up temporary directory
         shutil.rmtree(temp_dmg_dir)
         
-        print(f"DMG安装包已创建: {dmg_name}")
+        print(f"DMG installer package created: {dmg_name}")
         return True
         
     except Exception as e:
-        print(f"创建DMG时发生错误: {e}")
+        print(f"Error creating DMG: {e}")
         return False
 
 def main():
-    """主函数"""
-    print("K230 Flash GUI - macOS构建脚本")
+    """Main function"""
+    print("K230 Flash GUI - macOS Build Script")
     print("=" * 50)
     
     if not setup_macos_build():
@@ -247,9 +247,9 @@ def main():
     if not create_dmg():
         sys.exit(1)
     
-    print("\n=== macOS构建完成 ===")
-    print("输出目录: dist/K230FlashGUI.app")
-    print("安装包: ../../upload/")
+    print("\n=== macOS build completed ===")
+    print("Output directory: dist/K230FlashGUI.app")
+    print("Installer package: ../../upload/")
 
 if __name__ == "__main__":
     main()
