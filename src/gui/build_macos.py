@@ -71,27 +71,36 @@ def build_app():
             print(f"STDOUT: {result.stdout}")
             print(f"STDERR: {result.stderr}")
             
-            # 如果是符号链接冲突错误，尝试清理并重试
-            if "FileExistsError" in result.stderr and "symlink" in result.stderr.lower():
-                print("Detected symlink conflict, attempting to clean and retry...")
-                # 清理部分构建产物
-                if Path("dist").exists():
-                    shutil.rmtree("dist")
-                # 重试构建
-                result = subprocess.run(cmd, capture_output=True, text=True)
+            # 如果是符号链接冲突错误，尝试多次清理和重试
+            if "FileExistsError" in result.stderr and ("symlink" in result.stderr.lower() or "framework" in result.stderr.lower()):
+                print("Detected symlink conflict, attempting comprehensive cleanup and retry...")
+                
+                # 清理所有可能的冲突文件
+                cleanup_framework_conflicts()
+                
+                # 重试构建，最多3次
+                for attempt in range(3):
+                    print(f"Retry attempt {attempt + 1}/3...")
+                    
+                    # 再次清理
+                    if Path("dist").exists():
+                        shutil.rmtree("dist")
+                    if Path("build").exists():
+                        shutil.rmtree("build")
+                    
+                    # 重试构建
+                    result = subprocess.run(cmd, capture_output=True, text=True)
+                    if result.returncode == 0:
+                        print(f"Build successful on retry attempt {attempt + 1}")
+                        break
+                    else:
+                        print(f"Retry {attempt + 1} failed:")
+                        print(f"STDERR: {result.stderr}")
+                        if attempt < 2:  # 不是最后一次重试
+                            cleanup_framework_conflicts()
+                
                 if result.returncode != 0:
-                    return False
-            else:
-                return False
-            # 如果是符号链接冲突错误，尝试清理并重试
-            if "FileExistsError" in result.stderr and "symlink" in result.stderr.lower():
-                print("Detected symlink conflict, attempting to clean and retry...")
-                # 清理部分构建产物
-                if Path("dist").exists():
-                    shutil.rmtree("dist")
-                # 重试构建
-                result = subprocess.run(cmd, capture_output=True, text=True)
-                if result.returncode != 0:
+                    print("All retry attempts failed")
                     return False
             else:
                 return False
@@ -102,6 +111,52 @@ def build_app():
     except Exception as e:
         print(f"Error occurred during build: {e}")
         return False
+
+def cleanup_framework_conflicts():
+    """Clean up potential framework conflicts"""
+    print("Performing comprehensive framework cleanup...")
+    
+    try:
+        # 清理可能的冲突目录
+        conflict_paths = [
+            Path("dist"),
+            Path("build"),
+            Path("/tmp/pyinstaller_cache"),
+        ]
+        
+        for path in conflict_paths:
+            if path.exists():
+                try:
+                    shutil.rmtree(path)
+                    print(f"Cleaned up: {path}")
+                except Exception as e:
+                    print(f"Warning: Failed to clean {path}: {e}")
+        
+        # 清理Qt框架缓存
+        qt_cache_dirs = [
+            Path.home() / ".cache" / "pyinstaller",
+            Path("/tmp") / "_MEI*",
+        ]
+        
+        for cache_dir in qt_cache_dirs:
+            if cache_dir.exists():
+                try:
+                    if "*" in str(cache_dir):
+                        # 处理通配符路径
+                        import glob
+                        for path in glob.glob(str(cache_dir)):
+                            shutil.rmtree(path)
+                            print(f"Cleaned up cache: {path}")
+                    else:
+                        shutil.rmtree(cache_dir)
+                        print(f"Cleaned up cache: {cache_dir}")
+                except Exception as e:
+                    print(f"Warning: Failed to clean cache {cache_dir}: {e}")
+        
+        print("Framework cleanup completed")
+        
+    except Exception as e:
+        print(f"Warning: Framework cleanup failed: {e}")
 
 def create_app_bundle():
     """Create standard macOS .app bundle"""
