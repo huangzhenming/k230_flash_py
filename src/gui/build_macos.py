@@ -122,13 +122,16 @@ def create_app_bundle():
             icon_dst = resources_dir / "icon.ico"
             shutil.copy2(icon_src, icon_dst)
         
+        # 获取版本信息用于Info.plist
+        version = os.environ.get('VERSION', '1.0.0')
+        
         # 创建Info.plist文件
         info_plist = {
             'CFBundleName': 'K230 Flash GUI',
             'CFBundleDisplayName': 'K230 Flash GUI',
             'CFBundleIdentifier': 'com.kendryte.k230flashgui',
-            'CFBundleVersion': '1.0.0',
-            'CFBundleShortVersionString': '1.0.0',
+            'CFBundleVersion': version,
+            'CFBundleShortVersionString': version,
             'CFBundleExecutable': 'K230FlashGUI',
             'CFBundleIconFile': 'icon.ico',
             'CFBundlePackageType': 'APPL',
@@ -159,15 +162,19 @@ def create_dmg():
         print("错误: 找不到应用程序Bundle")
         return False
     
-    # 获取版本信息
-    try:
-        result = subprocess.run(
-            ["git", "describe", "--tags", "--always"],
-            capture_output=True, text=True, cwd="../.."
-        )
-        version = result.stdout.strip() if result.returncode == 0 else "dev"
-    except:
-        version = "dev"
+    # 获取版本信息 - 优先使用环境变量，fallback到git
+    version = os.environ.get('VERSION')
+    if not version:
+        try:
+            result = subprocess.run(
+                ["git", "describe", "--tags", "--always"],
+                capture_output=True, text=True, cwd="../.."
+            )
+            version = result.stdout.strip() if result.returncode == 0 else "dev"
+        except:
+            version = "dev"
+    
+    print(f"使用版本: {version}")
     
     # 创建输出目录
     output_dir = Path("../../upload")

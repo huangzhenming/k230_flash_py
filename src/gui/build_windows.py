@@ -88,16 +88,20 @@ def create_installer():
     output_dir = Path("../../upload")
     output_dir.mkdir(exist_ok=True)
     
-    # 获取版本信息
-    try:
-        import subprocess
-        result = subprocess.run(
-            ["git", "describe", "--tags", "--always"],
-            capture_output=True, text=True, cwd="../.."
-        )
-        version = result.stdout.strip() if result.returncode == 0 else "dev"
-    except:
-        version = "dev"
+    # 获取版本信息 - 优先使用环境变量，fallback到git
+    version = os.environ.get('VERSION')
+    if not version:
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["git", "describe", "--tags", "--always"],
+                capture_output=True, text=True, cwd="../.."
+            )
+            version = result.stdout.strip() if result.returncode == 0 else "dev"
+        except:
+            version = "dev"
+    
+    print(f"使用版本: {version}")
     
     # 创建zip文件
     zip_name = f"k230_flash_gui-windows-{version}"
