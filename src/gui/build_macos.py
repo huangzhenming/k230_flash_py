@@ -70,7 +70,31 @@ def build_app():
             print(f"PyInstaller build failed:")
             print(f"STDOUT: {result.stdout}")
             print(f"STDERR: {result.stderr}")
-            return False
+            
+            # 如果是符号链接冲突错误，尝试清理并重试
+            if "FileExistsError" in result.stderr and "symlink" in result.stderr.lower():
+                print("Detected symlink conflict, attempting to clean and retry...")
+                # 清理部分构建产物
+                if Path("dist").exists():
+                    shutil.rmtree("dist")
+                # 重试构建
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                if result.returncode != 0:
+                    return False
+            else:
+                return False
+            # 如果是符号链接冲突错误，尝试清理并重试
+            if "FileExistsError" in result.stderr and "symlink" in result.stderr.lower():
+                print("Detected symlink conflict, attempting to clean and retry...")
+                # 清理部分构建产物
+                if Path("dist").exists():
+                    shutil.rmtree("dist")
+                # 重试构建
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                if result.returncode != 0:
+                    return False
+            else:
+                return False
         
         print("PyInstaller build successful")
         return True

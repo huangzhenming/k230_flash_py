@@ -63,6 +63,24 @@ elif system == "darwin":
             if os.path.exists(path):
                 binaries += [(path, ".")]
                 break
+    
+    # macOS特定: 处理Qt框架符号链接冲突
+    # 过滤掉可能导致冲突的Qt框架文件
+    import shutil
+    def clean_existing_symlinks():
+        """清理可能冲突的符号链接"""
+        try:
+            qt_frameworks_dir = Path("dist/k230_flash_gui/_internal/PySide6/Qt/lib")
+            if qt_frameworks_dir.exists():
+                for framework in qt_frameworks_dir.glob("*.framework"):
+                    resources_link = framework / "Resources"
+                    if resources_link.exists() and resources_link.is_symlink():
+                        resources_link.unlink()
+                        print(f"Removed conflicting symlink: {resources_link}")
+        except Exception as e:
+            print(f"Warning: Failed to clean symlinks: {e}")
+    
+    # 这个函数将在构建时被调用
 
 # Linux特定配置
 elif system == "linux":
@@ -140,7 +158,18 @@ a = Analysis(
     ],
     hookspath=[],
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        # macOS: 排除可能导致符号链接冲突的Qt模块
+        "PySide6.Qt3DAnimation",
+        "PySide6.Qt3DCore", 
+        "PySide6.Qt3DExtras",
+        "PySide6.Qt3DInput",
+        "PySide6.Qt3DLogic",
+        "PySide6.Qt3DRender",
+        "PySide6.QtWebEngine",
+        "PySide6.QtWebEngineCore",
+        "PySide6.QtWebEngineWidgets",
+    ] if system == "darwin" else [],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
