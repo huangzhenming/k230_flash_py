@@ -33,7 +33,7 @@ if system == "windows":
     libusb_dll = os.path.join(spec_dir, "libusb-1.0.dll")
     if os.path.exists(libusb_dll):
         binaries += [(libusb_dll, ".")]
-        print(f"添加Windows USB库: {libusb_dll}")
+        print(f"Adding Windows USB library: {libusb_dll}")
     
     # Windows系统库
     try:
@@ -56,7 +56,7 @@ elif system == "darwin":
             libusb_lib = os.path.join(libusb_path, "lib", "libusb-1.0.dylib")
             if os.path.exists(libusb_lib):
                 binaries += [(libusb_lib, ".")]
-                print(f"添加macOS USB库: {libusb_lib}")
+                print(f"Adding macOS USB library: {libusb_lib}")
     except:
         # 备用路径
         for path in ["/usr/local/lib/libusb-1.0.dylib", "/opt/homebrew/lib/libusb-1.0.dylib"]:
@@ -91,10 +91,10 @@ elif system == "linux":
         if os.path.exists(cache_file):
             datas += [(cache_file, "gdk-pixbuf/")]
             
-        print(f"找到gdk-pixbuf路径: {gdk_pixbuf_path}")
-        print(f"加载器数量: {len([f for f in glob.glob(os.path.join(gdk_pixbuf_path, 'loaders', '*.so'))])}")
+        print(f"Found gdk-pixbuf path: {gdk_pixbuf_path}")
+        print(f"Number of loaders: {len([f for f in glob.glob(os.path.join(gdk_pixbuf_path, 'loaders', '*.so'))])}")
     else:
-        print("警告: 未找到gdk-pixbuf路径，可能会导致图像加载问题")
+        print("Warning: gdk-pixbuf path not found, may cause image loading issues")
 
 
 a = Analysis(
