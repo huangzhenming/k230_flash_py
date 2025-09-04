@@ -8,6 +8,7 @@ import PySide6
 
 spec_dir = Path.cwd()
 block_cipher = None
+system = platform.system().lower()
 
 # 收集 PySide6 的所有资源文件
 datas = collect_data_files("PySide6")
@@ -25,7 +26,46 @@ if os.path.exists(qt_platforms):
     datas += [(qt_platforms, "PySide6/Qt/plugins/platforms")]
 
 binaries = []
-if platform.system().lower() == "linux":
+
+# Windows特定配置
+if system == "windows":
+    # 添加libusb-1.0.dll
+    libusb_dll = os.path.join(spec_dir, "libusb-1.0.dll")
+    if os.path.exists(libusb_dll):
+        binaries += [(libusb_dll, ".")]
+        print(f"添加Windows USB库: {libusb_dll}")
+    
+    # Windows系统库
+    try:
+        import usb.backend.libusb1
+        backend_path = os.path.dirname(usb.backend.libusb1.__file__)
+        for dll in glob.glob(os.path.join(backend_path, "*.dll")):
+            binaries += [(dll, "usb/backend")]
+    except:
+        pass
+
+# macOS特定配置
+elif system == "darwin":
+    # macOS USB库配置
+    try:
+        # 查找libusb库
+        import subprocess
+        result = subprocess.run(["brew", "--prefix", "libusb"], capture_output=True, text=True)
+        if result.returncode == 0:
+            libusb_path = result.stdout.strip()
+            libusb_lib = os.path.join(libusb_path, "lib", "libusb-1.0.dylib")
+            if os.path.exists(libusb_lib):
+                binaries += [(libusb_lib, ".")]
+                print(f"添加macOS USB库: {libusb_lib}")
+    except:
+        # 备用路径
+        for path in ["/usr/local/lib/libusb-1.0.dylib", "/opt/homebrew/lib/libusb-1.0.dylib"]:
+            if os.path.exists(path):
+                binaries += [(path, ".")]
+                break
+
+# Linux特定配置
+elif system == "linux":
     # 尝试多个可能的gdk-pixbuf路径（适配不同Linux发行版）
     gdk_pixbuf_paths = [
         "/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0",
@@ -64,11 +104,10 @@ a = Analysis(
     datas=datas + [
         ("config.ini", "."),
         ("k230_flash_gui.pdf", "."),
-        ("libusb-1.0.dll", "."),   # Windows 用，macOS 下会忽略
         ("english.qm", "."),
         ("assets/*", "assets/"),
         (str(spec_dir.parent / "k230_flash" / "loaders"), "k230_flash/loaders"),
-    ],
+    ] + (["libusb-1.0.dll", "."] if system == "windows" and os.path.exists("libusb-1.0.dll") else []),
     hiddenimports=collect_submodules("PySide6") + [
         "PySide6.QtWidgets",
         "PySide6.QtGui",
@@ -119,6 +158,8 @@ exe = EXE(
     upx=True,
     console=False,
     icon="assets/k230_flash_gui_logo.ico",
+    # Windows特定设置
+    version="version_info.txt" if system == "windows" and os.path.exists("version_info.txt") else None,
 )
 
 coll = COLLECT(
@@ -130,3 +171,29 @@ coll = COLLECT(
     upx=True,
     name="k230_flash_gui"
 )
+
+# macOS .app bundle配置
+if system == "darwin":
+    app = BUNDLE(
+        coll,
+        name="K230FlashGUI.app",
+        icon="assets/k230_flash_gui_logo.ico",
+        bundle_identifier="com.kendryte.k230flashgui",
+        version="1.0.0",
+        info_plist={
+            'CFBundleName': 'K230 Flash GUI',
+            'CFBundleDisplayName': 'K230 Flash GUI',
+            'CFBundleVersion': '1.0.0',
+            'CFBundleShortVersionString': '1.0.0',
+            'LSMinimumSystemVersion': '10.14.0',
+            'NSPrincipalClass': 'NSApplication',
+            'NSAppleScriptEnabled': False,
+            'LSUIElement': False,
+            'NSHighResolutionCapable': True,
+            'CFBundleDocumentTypes': [{
+                'CFBundleTypeName': 'K230 Image Files',
+                'CFBundleTypeExtensions': ['kdimg', 'img'],
+                'CFBundleTypeRole': 'Editor'
+            }]
+        }
+    )
