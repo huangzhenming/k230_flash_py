@@ -186,7 +186,7 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,
-    icon="assets/k230_flash_gui_logo.ico",
+    icon="assets/k230_flash_gui_logo.ico" if system != "darwin" else "assets/k230_flash_gui_logo.icns",
     # Windows特定设置
     version="version_info.txt" if system == "windows" and os.path.exists("version_info.txt") else None,
 )
@@ -206,7 +206,7 @@ if system == "darwin":
     app = BUNDLE(
         coll,
         name="K230FlashGUI.app",
-        icon="assets/k230_flash_gui_logo.ico",
+        icon="assets/k230_flash_gui_logo.icns",
         bundle_identifier="com.kendryte.k230flashgui",
         version="1.0.0",
         info_plist={

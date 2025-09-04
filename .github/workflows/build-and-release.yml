@@ -63,15 +63,15 @@ jobs:
     strategy:
       matrix:
         include:
-        - os: ubuntu-22.04
-          label: ubuntu
-          runner: ubuntu-22.04
-        - os: windows-2022
-          label: windows
-          runner: windows-2022
-        # - os: macos-13
-        #   label: macos
-        #   runner: macos-13
+        # - os: ubuntu-22.04
+        #   label: ubuntu
+        #   runner: ubuntu-22.04
+        # - os: windows-2022
+        #   label: windows
+        #   runner: windows-2022
+        - os: macos-13
+          label: macos
+          runner: macos-13
     runs-on: ${{ matrix.runner }}
     defaults:
       run:

@@ -141,9 +141,9 @@ def create_app_bundle():
                     shutil.copytree(item, macos_dir / item.name, dirs_exist_ok=True)
         
         # Copy icon file
-        icon_src = Path("assets/k230_flash_gui_logo.ico")
+        icon_src = Path("assets/k230_flash_gui_logo.icns")
         if icon_src.exists():
-            icon_dst = resources_dir / "icon.ico"
+            icon_dst = resources_dir / "icon.icns"
             shutil.copy2(icon_src, icon_dst)
         
         # Get version info for Info.plist
@@ -157,7 +157,7 @@ def create_app_bundle():
             'CFBundleVersion': version,
             'CFBundleShortVersionString': version,
             'CFBundleExecutable': 'K230FlashGUI',
-            'CFBundleIconFile': 'icon.ico',
+            'CFBundleIconFile': 'icon.icns',
             'CFBundlePackageType': 'APPL',
             'CFBundleSignature': '????',
             'LSMinimumSystemVersion': '10.14.0',
