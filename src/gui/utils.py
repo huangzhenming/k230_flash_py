@@ -5,8 +5,8 @@ import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
+import configparser
 
-import setuptools_scm
 from loguru import logger
 from platformdirs import user_config_dir
 
@@ -337,31 +337,56 @@ def extract_resource(filename: str):
 # 版本号管理
 # -------------------------
 
-def get_version_from_git():
-    return f"v{setuptools_scm.get_version()}"
-
-
-def gen_version_file():
-    version = get_version_from_git()
-    version_file = get_app_config_dir() / "version.txt"
-    with open(version_file, "w") as f:
-        f.write(version)
-
-
 def get_version_from_file(name="version.txt"):
-    version_path = get_app_config_dir() / name
-    try:
-        with open(version_path, "r") as f:
-            version = f.read()
-    except FileNotFoundError:
-        version = "v0.0"
-    return version
+    """
+    从版本文件中读取版本号
+    优先查找顺序：
+    1. 打包后的应用程序目录中的version.txt（CI构建时生成）
+    2. 配置目录中的version.txt（备用）
+    3. 默认版本号 "dev"
+    """
+    # 在打包后的应用程序中，version.txt应该在可执行文件同级目录
+    if getattr(sys, "frozen", False):
+        # PyInstaller打包后的环境
+        exe_dir = Path(sys.executable).parent
+        version_paths = [
+            exe_dir / name,  # 与可执行文件同级
+            exe_dir / ".." / name,  # 上一级目录
+        ]
+    else:
+        # 开发环境，检查多个可能的位置
+        current_dir = Path(__file__).parent
+        version_paths = [
+            current_dir / name,  # 当前目录
+            current_dir / ".." / ".." / name,  # 项目根目录
+            get_app_config_dir() / name,  # 配置目录
+        ]
+    
+    # 按优先级查找版本文件
+    for version_path in version_paths:
+        try:
+            if version_path.exists():
+                with open(version_path, "r", encoding="utf-8") as f:
+                    version = f.read().strip()
+                    if version:  # 确保版本不为空
+                        logger.debug(f"从 {version_path} 读取版本号: {version}")
+                        return version
+        except Exception as e:
+            logger.debug(f"读取版本文件 {version_path} 失败: {e}")
+            continue
+    
+    # 如果所有路径都失败，返回默认版本
+    logger.warning("未找到版本文件，使用默认版本号")
+    return "dev"
 
 
 def get_version():
-    if getattr(sys, "frozen", False):
-        return get_version_from_file()
-    return get_version_from_git()
+    """
+    获取应用程序版本号
+    - 打包后的应用程序：从CI构建时生成的version.txt读取
+    - 开发环境：从可能的位置查找version.txt，如果没有则返回"dev"
+    """
+    return get_version_from_file()
 
 
 # -------------------------
@@ -369,7 +394,10 @@ def get_version():
 # -------------------------
 
 if __name__ == "__main__":
-    gen_version_file()
-    print(get_version())
-
-    load_config()
+    # 开发环境测试
+    print(f"当前版本: {get_version()}")
+    print(f"应用配置目录: {get_app_config_dir()}")
+    
+    # 加载配置测试
+    config = load_config()
+    print(f"配置文件已加载，段数: {len(config.sections())}")

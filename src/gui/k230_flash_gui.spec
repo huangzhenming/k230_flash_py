@@ -121,6 +121,7 @@ a = Analysis(
     binaries=binaries,
     datas=datas + [
         ("config.ini", "."),
+        ("version.txt", ".") if os.path.exists("version.txt") else None,
         ("k230_flash_gui.pdf", "."),
         ("english.qm", "."),
         ("assets/*", "assets/"),
