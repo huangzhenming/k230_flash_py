@@ -77,7 +77,6 @@ class FlashTool(QMainWindow):
 
         # 打包后的资源文件准备
         utils.extract_resource("config.ini")
-        utils.extract_resource("k230_flash_gui.pdf")
 
         # 加载配置
         self.config = utils.load_config()
@@ -275,19 +274,74 @@ class FlashTool(QMainWindow):
     def open_user_manual(self):
         """打开使用说明文档"""
         try:
-            # 尝试使用系统命令打开 k230_flash_gui.pdf 文件
-            pdf_path = utils.get_exe_dir() / "k230_flash_gui.pdf"
-            if pdf_path.exists():
+            # 根据当前语言设置选择相应的PDF文件
+            if self.current_language == "en":
+                pdf_filename = "k230_flash_gui_en.pdf"
+            else:
+                pdf_filename = "k230_flash_gui_zh.pdf"
+            
+            logger.info(f"开始查找PDF文件: {pdf_filename}")
+            logger.info(f"sys.frozen: {getattr(sys, 'frozen', False)}")
+            
+            # 检查多个可能的PDF文件位置（参照get_version_from_file的逻辑）
+            if getattr(sys, "frozen", False):
+                # PyInstaller打包后的环境
+                logger.info(f"sys._MEIPASS: {getattr(sys, '_MEIPASS', 'None')}")
+                logger.info(f"sys.executable: {sys.executable}")
+                
+                pdf_paths = [
+                    Path(sys._MEIPASS) / pdf_filename,  # _internal目录中的资源文件（优先）
+                    Path(sys.executable).parent / pdf_filename,  # 与可执行文件同级（备用）
+                    Path(sys.executable).parent / ".." / pdf_filename,  # 上一级目录（备用）
+                ]
+            else:
+                # 开发环境，检查多个可能的位置
+                current_dir = Path(__file__).parent
+                logger.info(f"开发环境当前目录: {current_dir}")
+                
+                pdf_paths = [
+                    current_dir / pdf_filename,  # 当前目录
+                    current_dir / ".." / ".." / pdf_filename,  # 项目根目录
+                    utils.get_app_config_dir() / pdf_filename,  # 配置目录
+                ]
+            
+            # 按优先级查找PDF文件
+            pdf_path = None
+            for path in pdf_paths:
+                if path.exists():
+                    pdf_path = path
+                    logger.info(f"找到PDF文件: {pdf_path}")
+                    break
+            
+            if pdf_path:
                 if sys.platform == "win32":
                     os.startfile(pdf_path)  # Windows
                 elif sys.platform == "darwin":
-                    os.system(f"open {pdf_path}")  # macOS
+                    os.system(f"open '{pdf_path}'")  # macOS
                 else:
-                    os.system(f"xdg-open {pdf_path}")  # Linux
+                    os.system(f"xdg-open '{pdf_path}'")  # Linux
+                logger.info(f"已打开使用说明文档: {pdf_path}")
             else:
-                QtWidgets.QMessageBox.warning(self, "文件未找到", "无法找到使用说明文档 (power-octopus.pdf)。")
+                # 生成详细的错误信息，显示查找的所有路径
+                search_paths = "\n".join([f"- {path} (存在: {path.exists()})" for path in pdf_paths])
+                
+                # 添加环境信息
+                env_info = f"\n\n环境信息:\n"
+                env_info += f"- sys.frozen: {getattr(sys, 'frozen', False)}\n"
+                if hasattr(sys, '_MEIPASS'):
+                    env_info += f"- sys._MEIPASS: {sys._MEIPASS}\n"
+                env_info += f"- sys.executable: {sys.executable}\n"
+                env_info += f"- 当前工作目录: {Path.cwd()}"
+                
+                QtWidgets.QMessageBox.warning(
+                    self, 
+                    "文件未找到", 
+                    f"无法找到使用说明文档 ({pdf_filename})。\n\n已查找以下位置：\n{search_paths}{env_info}\n\n请检查日志获取更多详细信息。"
+                )
+                logger.warning(f"找不到PDF文件 {pdf_filename}，已查找路径: {[str(p) for p in pdf_paths]}")
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "打开文件失败", f"无法打开使用说明文档：{e}")
+            logger.error(f"打开PDF文件时出错: {e}", exc_info=True)
 
     def show_advanced_settings(self):
         dialog = AdvancedSettingsDialog(self)

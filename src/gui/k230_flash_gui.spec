@@ -12,8 +12,10 @@ system = platform.system().lower()
 extra_datas = [("config.ini", ".")]
 if os.path.exists("version.txt"):
     extra_datas.append(("version.txt", "."))
-if os.path.exists("k230_flash_gui.pdf"):
-    extra_datas.append(("k230_flash_gui.pdf", "."))
+if os.path.exists("k230_flash_gui_zh.pdf"):
+    extra_datas.append(("k230_flash_gui_zh.pdf", "."))
+if os.path.exists("k230_flash_gui_en.pdf"):
+    extra_datas.append(("k230_flash_gui_en.pdf", "."))
 if os.path.exists("english.qm"):
     extra_datas.append(("english.qm", "."))
 if os.path.exists("assets"):
