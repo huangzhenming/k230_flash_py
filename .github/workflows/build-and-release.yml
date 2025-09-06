@@ -69,9 +69,9 @@ jobs:
         - os: windows-2022
           label: windows
           runner: windows-2022
-        # - os: macos-13
-        #   label: macos
-        #   runner: macos-13
+        - os: macos-13
+          label: macos
+          runner: macos-13
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
