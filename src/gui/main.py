@@ -1,6 +1,4 @@
-from utils import init_platform_env
-RESOURCES = init_platform_env()
-
+import multiprocessing
 import os
 import sys
 from pathlib import Path
@@ -75,7 +73,7 @@ class FlashTool(QMainWindow):
         super().__init__()
 
         # 初始化日志系统
-        setup_gui_logging()
+        # setup_gui_logging()
 
         # 打包后的资源文件准备
         utils.extract_resource("config.ini")
@@ -306,9 +304,20 @@ class FlashTool(QMainWindow):
 
 
 if __name__ == "__main__":
+    # PyInstaller多进程保护 - 防止fork bomb现象
+    multiprocessing.freeze_support()
+    
     # 在应用启动时初始化日志系统
     setup_gui_logging()
     logger.info("K230 Flash GUI 应用正在启动...")
+
+    # macOS 上过滤系统输入法相关的日志输出
+    # 注意: 在macOS上运行Qt/PySide6应用时，可能会看到IMKClient相关的系统日志
+    # 这是苹果系统输入法框架的正常初始化过程，不是应用程序错误
+    if sys.platform == "darwin":
+        import os
+        # 重定向stderr以减少IMKClient等系统日志
+        os.environ['QT_LOGGING_RULES'] = 'qt.qpa.input.methods.debug=false'
 
     app = QApplication(sys.argv)
     main_window = FlashTool()

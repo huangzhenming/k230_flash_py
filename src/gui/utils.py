@@ -341,17 +341,18 @@ def get_version_from_file(name="version.txt"):
     """
     从版本文件中读取版本号
     优先查找顺序：
-    1. 打包后的应用程序目录中的version.txt（CI构建时生成）
-    2. 配置目录中的version.txt（备用）
-    3. 默认版本号 "dev"
+    1. 打包后的应用程序内部资源目录中的version.txt（CI构建时生成）
+    2. 打包后的应用程序目录中的version.txt（备用）
+    3. 配置目录中的version.txt（备用）
+    4. 默认版本号 "dev"
     """
-    # 在打包后的应用程序中，version.txt应该在可执行文件同级目录
+    # 在打包后的应用程序中，version.txt在_internal目录中
     if getattr(sys, "frozen", False):
         # PyInstaller打包后的环境
-        exe_dir = Path(sys.executable).parent
         version_paths = [
-            exe_dir / name,  # 与可执行文件同级
-            exe_dir / ".." / name,  # 上一级目录
+            Path(sys._MEIPASS) / name,  # _internal目录中的资源文件（优先）
+            Path(sys.executable).parent / name,  # 与可执行文件同级（备用）
+            Path(sys.executable).parent / ".." / name,  # 上一级目录（备用）
         ]
     else:
         # 开发环境，检查多个可能的位置
