@@ -92,7 +92,7 @@ The software provides an intuitive graphical interface, including menu bar, main
 
 ### **5.2 Main Interface**  
 
-- **Image File Selection**: Select `.bin`, `.img`, `.kdimg` files.  
+- **Image File Selection**: Select `.bin`, `.img`, `.kdimg` files, as well as compressed format files (`.zip`, `.gz`, `.tgz`, `.tar.gz`).  
 - **Target Storage Media**: Supports eMMC, SD Card, Nand Flash, NOR Flash, OTP.  
 - **Progress Bar and Log**: Shows flashing progress and log information.  
 
@@ -107,8 +107,11 @@ In **Settings > Flash Mode**, choose:
 
 ### **6.2 Select Firmware File**  
 
-1. Click the "Add Image File" button to select `.bin`, `.img`, or `.kdimg` files.  
-2. `.img` files will be parsed into multiple partitions, and users can check the parts they want to flash.  
+1. Click the "Add Image File" button to select files in the following formats:  
+   - **Image files**: `.bin`, `.img`, `.kdimg`  
+   - **Compressed files**: `.zip`, `.gz`, `.tgz`, `.tar.gz` (the tool will automatically extract and find image files within)  
+2. If you select a `.kdimg` file, it will be parsed into multiple partitions, and users can check the parts they want to flash.  
+3. For compressed files, the system will automatically extract them in a temporary directory and find the first available image file.
 
 ### **6.3 Select Target Storage Media**  
 
