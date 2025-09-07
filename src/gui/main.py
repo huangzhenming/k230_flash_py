@@ -113,7 +113,7 @@ class FlashTool(QMainWindow):
         self.setWindowIcon(QIcon(str(icon_path)))
 
         # 设置窗口标题
-        self.setWindowTitle(self.tr(f"K230 Flash Tool-{self.version}"))
+        self.setWindowTitle(self.tr(f"K230 Flash GUI-{self.version}"))
 
     def create_menu_bar(self):
         # 创建菜单栏

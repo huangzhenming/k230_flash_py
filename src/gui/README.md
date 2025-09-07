@@ -14,7 +14,7 @@
 $ pyside6-lupdate main.py single_flash.py advanced_settings.py batch_flash.py -ts english.ts
 
 # 使用Qt Linguist编辑翻译
-$ pyside6-linguist.exe english.ts
+$ pyside6-linguist english.ts
 # 在菜单中选择发布为english.qm，或者使用命令行：
 $ pyside6-lrelease english.ts -qm english.qm
 ```
