@@ -205,6 +205,10 @@ class Ui_MainWindow(object):
             self.header_checkbox.setText(
                 QCoreApplication.translate("SingleFlash", "全选")
             )
+        
+        # 更新帮助提示文本
+        if hasattr(self, "device_help_tip"):
+            self.device_help_tip.setText(self.get_translated_text("device_help_tip"))
 
     def update_table_headers(self):
         """更新表格头部标签"""
@@ -226,6 +230,9 @@ class Ui_MainWindow(object):
                 "SingleFlash", "等待设备连接..."
             ),
             "progress_format": "%p%",  # 进度条格式不需要翻译
+            "device_help_tip": QCoreApplication.translate(
+                "SingleFlash", "💡 找不到烧录设备？查看解决办法"
+            ),
         }
         return translations.get(key, key)
 
@@ -513,6 +520,10 @@ class Ui_MainWindow(object):
 
         # 添加至布局
         layout.addLayout(device_layout)
+        
+        # 创建并添加帮助提示组件
+        help_tip = self.create_device_help_tip()
+        layout.addWidget(help_tip)
 
         return self.device_list_region_group
 
@@ -860,6 +871,77 @@ class Ui_MainWindow(object):
             self.device_address_combo.setCurrentIndex(0)
 
         self.device_address_combo.blockSignals(False)
+        
+        # 更新帮助提示的显示状态
+        self.update_device_help_tip_visibility()
+
+    def update_device_help_tip_visibility(self):
+        """根据设备列表状态更新帮助提示的显示状态"""
+        if hasattr(self, 'device_help_tip'):
+            # 如果设备列表为空，显示帮助提示
+            is_device_list_empty = self.device_address_combo.count() == 0
+            self.device_help_tip.setVisible(is_device_list_empty)
+    
+    def create_device_help_tip(self):
+        """创建设备帮助提示组件"""
+        self.device_help_tip = QLabel()
+        self.device_help_tip.setText(self.get_translated_text("device_help_tip"))
+        
+        # 设置优化后的样式
+        self.device_help_tip.setStyleSheet("""
+            QLabel {
+                color: #1976D2;
+                font-weight: bold;
+                padding: 8px 4px;
+                border-radius: 4px;
+                background-color: transparent;
+                font-size: 13px;
+            }
+            QLabel:hover {
+                color: #0D47A1;
+                background-color: #E3F2FD;
+            }
+        """)
+        
+        # 设置手型光标
+        self.device_help_tip.setCursor(Qt.PointingHandCursor)
+        
+        # 设置左对齐
+        self.device_help_tip.setAlignment(Qt.AlignLeft)
+        
+        # 设置尺寸策略，使其自适应内容
+        self.device_help_tip.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred,
+            QtWidgets.QSizePolicy.Fixed
+        )
+        
+        # 添加鼠标点击事件
+        self.device_help_tip.mousePressEvent = self.on_device_help_tip_clicked
+        
+        # 初始状态为隐藏
+        self.device_help_tip.setVisible(False)
+        
+        return self.device_help_tip
+    
+    def on_device_help_tip_clicked(self, event):
+        """处理帮助提示点击事件"""
+        # 只处理左键点击
+        if event.button() == Qt.LeftButton:
+            # 获取主窗口并调用其打开帮助文档的方法
+            main_window = self.get_main_window()
+            if main_window and hasattr(main_window, 'open_user_manual'):
+                main_window.open_user_manual()
+    
+    def get_main_window(self):
+        """获取主窗口实例"""
+        # 遍历父级组件，找到FlashTool主窗口
+        widget = self.centralwidget
+        while widget:
+            parent = widget.parent()
+            if parent and hasattr(parent, 'open_user_manual'):
+                return parent
+            widget = parent
+        return None
 
     def show_advanced_settings(self):
         dialog = AdvancedSettingsDialog(self)

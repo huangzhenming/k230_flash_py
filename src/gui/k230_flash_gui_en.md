@@ -8,32 +8,13 @@ This tool is based on the **k230-flash** library with a friendly GUI interface. 
 
 ## **2. System Requirements**  
 
-- **Operating System**: Windows / Linux  
-- **Python Version**: Python 3.8 and above  
-- **Dependencies**: PySide6, loguru, gitpython, k230-flash, etc. (see `requirements.txt` for details)  
+- **Operating System**: Windows 10/11, Linux, or macOS  
+- **Hardware Requirements**: USB port for connecting K230 development board  
+- **Required Components**: libusb drivers (must be installed for Windows users) or libusb library (required for Linux/macOS users)
 
-## **3. Installation**  
+## **3. Development Board Hardware Setup**  
 
-### **3.1 Install Python and Dependencies**  
-
-1. **Install Python 3.8 or higher** and ensure `pip` is installed.  
-2. Run the following command to install dependencies:  
-
-   ```shell
-   pip install -r requirements.txt
-   ```  
-
-### **3.2 Run the Software**  
-
-Launch the GUI by running the following command in terminal:  
-
-```shell
-python main.py
-```
-
-## **4. Development Board Hardware Setup**  
-
-Before flashing, you need to put the **K230 development board** into **USB Boot mode**:  
+Before flashing, you need to put the **K230 development board** into **Burning Mode**:  
 
 1. **Method 1** (Recommended):  
    - **Hold down** the **BOOT** button on the development board, then **plug in the USB cable** to power on the board.  
@@ -41,96 +22,143 @@ Before flashing, you need to put the **K230 development board** into **USB Boot 
 2. **Method 2**:  
    - When the board is already powered on, **hold down** the **BOOT** button, then **press and hold the RESET** button, then **release RESET**, and finally **release BOOT**.  
 
-After entering **USB Boot mode**, you can check in **Device Manager** (Windows) or `lsusb` (Linux) to see if the **"K230 USB Boot Device"** is recognized.  
+After entering **Burning Mode**, you can check in **Device Manager** (Windows), `lsusb` (Linux), or `system_profiler SPUSBDataType` (macOS) to see if the **"K230 USB Boot Device"** is recognized.  
 
-## **5. Driver Installation (Windows)**  
+## **4. Driver Installation**  
 
-**K230 Flash GUI** uses **libusb** for USB device communication. On Windows, you need to install **drivers**. We recommend using the **Zadig** tool:  
+### **4.1 Windows Users**  
 
-1. **Download Zadig** ([https://zadig.akeo.ie/](https://zadig.akeo.ie/)).  
-2. **Open Zadig**, select **Options > List All Devices**, then find **K230 USB Boot Device**.  
-3. In the **Driver** option, select **WinUSB** (if already installed, you can choose to reinstall).  
-4. Click **Install Driver** and wait for installation to complete.  
-5. After installation, you can see **K230 USB Boot Device (WinUSB)** in **Device Manager**.  
+**K230 Flash GUI** uses **libusb** for USB device communication. On Windows, you **must** install the corresponding drivers:  
 
-## **6. User Interface**  
+1. **Download Zadig tool** ([https://zadig.akeo.ie/](https://zadig.akeo.ie/)).  
+2. **Connect K230 development board to PC and enter Burning Mode**.  
+3. **Open Zadig**, select **Options > List All Devices**, then find **K230 USB Boot Device**.  
+4. In the **Driver** option, select **WinUSB**.  
+5. Click **Install Driver** and wait for installation to complete.  
+6. After installation, you can see **K230 USB Boot Device (WinUSB)** in **Device Manager**.  
+
+### **4.2 Linux Users**  
+
+1. **Install libusb development package**:  
+
+   ```bash
+   # Ubuntu/Debian
+   sudo apt-get install libusb-1.0-0-dev
+   
+   # CentOS/RHEL/Fedora
+   sudo yum install libusb1-devel
+   ```
+
+2. **Add udev rules** (optional, to avoid requiring sudo permissions):
+
+   ```bash
+   echo 'SUBSYSTEM=="usb", ATTR{idVendor}="29f1", ATTR{idProduct}=="*", MODE="0666"' | sudo tee /etc/udev/rules.d/99-k230.rules
+   sudo udevadm control --reload-rules
+   ```  
+
+### **4.3 macOS Users**  
+
+1. **Install libusb**:  
+   It is recommended to install libusb using Homebrew:  
+
+   ```bash
+   # Install libusb
+   brew install libusb
+   ```
+
+2. **Verify installation**:  
+
+   ```bash
+   # Verify libusb installation
+   brew list libusb
+   ```
+
+3. **Notes**:  
+   - macOS usually does not require additional drivers, the system will automatically recognize K230 devices  
+   - If you encounter permission issues, you may need to allow relevant permissions in "System Preferences > Security & Privacy"  
+
+## **5. User Interface**  
 
 The software provides an intuitive graphical interface, including menu bar, main interface, and log area.
 
 ![K230 Flash GUI](images/k230_flash_gui.png)
 
-### **6.1 Menu Bar**  
+### **5.1 Menu Bar**  
 
 - **File (F)**: Provides exit function (shortcut `Ctrl+Q`).  
 - **Settings (S)**: Select flash mode (single / batch) and advanced settings.  
-- **Language (L)**: Supports Chinese / English switching.  
+- **Language / Language (L)**: Supports Chinese / English switching.  
 - **Help (H)**: Contains "About" information and user manual.  
 
-### **6.2 Main Interface**  
+### **5.2 Main Interface**  
 
 - **Image File Selection**: Select `.bin`, `.img`, `.kdimg` files.  
 - **Target Storage Media**: Supports eMMC, SD Card, Nand Flash, NOR Flash, OTP.  
 - **Progress Bar and Log**: Shows flashing progress and log information.  
 
-## **7. Flashing Process**  
+## **6. Flashing Process**  
 
-### **7.1 Select Flash Mode**  
+### **6.1 Select Flash Mode**  
 
 In **Settings > Flash Mode**, choose:  
 
 - **Single Flash Mode**: Flash a single device individually.  
 - **Batch Flash Mode**: Flash multiple devices simultaneously (this feature is still under development).  
 
-### **7.2 Select Firmware File**  
+### **6.2 Select Firmware File**  
 
 1. Click the "Add Image File" button to select `.bin`, `.img`, or `.kdimg` files.  
 2. `.img` files will be parsed into multiple partitions, and users can check the parts they want to flash.  
 
-### **7.3 Select Target Storage Media**  
+### **6.3 Select Target Storage Media**  
 
 Select **eMMC / SD Card / Nand Flash / NOR Flash / OTP** in the media options.  
 
-### **7.4 Start Flashing**  
+### **6.4 Start Flashing**  
 
 1. **Confirm the image file, target storage media, and flash address**.  
 2. Click the **"Start Flash"** button, and the progress bar will show real-time flashing progress.  
 3. After flashing is complete, the log area will show **"Flash Complete!"**.  
 
-## **8. Command-line Flashing with k230-flash**  
-
-If you need to flash from **command line** or **automation scripts**, you can directly use the `k230-flash` library. For example:  
-
-```python
-from k230_flash.main import main
-
-# Example: Flash a .kdimg file to SDCARD with auto-reboot
-args = [
-    "/path/to/your/firmware.kdimg",
-    "--media-type", "SDCARD",
-    "--auto-reboot"
-]
-
-# Call the main function with argument list
-main(args)
-```
-
-## **9. Advanced Settings**  
+## **7. Advanced Settings**  
 
 You can configure advanced options in **Settings > Advanced Settings**, such as adjusting flash parameters, modifying flash addresses, etc.  
 
-## **10. Language Switching**  
+## **8. Language Switching**  
 
-Select **Chinese** or **English** in the **Language** menu, and the interface language will switch automatically.  
+Select **Chinese** or **English** in the **Language / Language** menu, and the interface language will switch automatically.  
 
-## **11. Troubleshooting**  
+## **9. Troubleshooting**  
 
-### **11.1 Interface Not Responding / Flash Failure**  
+### **9.1 Cannot Find Flash Device**  
 
-- Ensure Python and PySide6 dependencies are correctly installed.  
-- Connect the K230 development board and check the USB cable.  
-- Check the log area for error messages and try flashing again.  
+If you cannot find the K230 device in the device list, please check the following:  
 
-### **11.2 Language Switch Failure**  
+1. **Confirm if the development board is in Burning Mode**:  
+   - Re-follow the steps in Chapter 3 to put the development board into burning mode  
+   - Confirm in Device Manager (Windows) or `lsusb` (Linux) if the K230 device is recognized  
 
-- Ensure the `english.qm` language pack is correctly loaded.  
-- Modify `language=zh-CN` or `language=en` in `config.ini`, then restart the software.
+2. **Check drivers** (Windows users):  
+   - Ensure WinUSB driver has been installed according to Chapter 4.1  
+   - Confirm in Device Manager that the device shows as "K230 USB Boot Device (WinUSB)"  
+
+3. **Check libusb** (Linux users):  
+   - Ensure libusb-1.0-0-dev package is installed  
+   - Try running the program with sudo privileges, or configure udev rules  
+
+4. **Check libusb** (macOS users):  
+   - Ensure libusb has been installed via Homebrew: `brew install libusb`  
+   - Check if relevant permissions are allowed in System Preferences  
+   - Try running `system_profiler SPUSBDataType` in terminal to see if K230 device is recognized  
+
+5. **Check USB connection**:  
+   - Replace USB data cable (avoid using charging-only cables)  
+   - Try different USB ports  
+   - Ensure USB cable quality is good and supports data transmission  
+
+### **9.2 Flash Process Failure**  
+
+- **Check firmware file**: Ensure firmware file is complete and compatible with current development board model  
+- **Check storage media**: Confirm correct target storage media is selected (eMMC/SD Card, etc.)  
+- **Re-enter burning mode**: Disconnect USB connection, let development board re-enter Burning Mode  
+- **Check log information**: Pay attention to error messages in log area, troubleshoot based on specific error information  
