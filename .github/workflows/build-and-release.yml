@@ -44,11 +44,6 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "VERSION=$VERSION"
 
-      - name: Zip python package
-        run: |
-          mkdir -p upload
-          zip -j upload/k230-flash-${{ env.VERSION }}.zip dist/*
-
       # 上传到 PyPI（仅在打 tag 时触发）
       - name: Publish package distributions to PyPI
         if: startsWith(github.ref, 'refs/tags/')
@@ -65,8 +60,7 @@ jobs:
           generate_release_notes: true
           tag_name: ${{ github.ref_name }}
           files: |
-            dist/*
-            upload/*.zip
+            dist/*.whl
 
       # 非 tag push 的 nightly artifact
       - name: Upload Nightly Artifact
@@ -75,8 +69,7 @@ jobs:
         with:
           name: k230-flash-${{ env.VERSION }}
           path: |
-            dist/*
-            upload/*.zip
+            dist/*.whl
 
   gui-release:
     strategy:
